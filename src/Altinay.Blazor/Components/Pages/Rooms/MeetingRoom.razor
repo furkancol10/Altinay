@@ -1,9 +1,11 @@
 ﻿@page "/meeting-bookings"
+@using Altinay.Localization
 @using Altinay.Meeting
 @using Altinay.Meeting.CreateUpdateDtos
 @using Altinay.Meeting.IAppServices
 @using Altinay.Meeting.MeetingRoomDtos
 @using Blazorise
+@using Microsoft.Extensions.Localization
 @using Volo.Abp
 @using Volo.Abp.Application.Dtos
 @using Volo.Abp.AspNetCore.Components.Web
@@ -12,8 +14,7 @@
 @inject IBookingAppService BookingAppService
 @inject IRoomAppService RoomAppService
 @inject IFloorAppService FloorAppService
-
-@inherits AbpCrudPageBase<IFloorAppService,FloorDto,Guid,FloorInputListDto,CreateUpdateFloorDto>
+@inject IStringLocalizer<AltinayResource> L
 
 
 <Row>
@@ -36,35 +37,44 @@
         </Tabs>
     </Column>
     <Column ColumnSize="ColumnSize.IsAuto">
-        <Button color="Color.Primary" Size="Size.Small" Clicked="OpenCreateModalAsync" Position="Position.Sticky">
+        <Button color="Color.Primary" Size="Size.Small" Clicked="OpenFloorModalAsync" Position="Position.Sticky">
             <Icon Name="IconName.PlusSquare" />
             @L["NewFloor"]
         </Button>
-        <Button color="Color.Primary" Size="Size.Small" Clicked="OpenCreateModalAsync" Position="Position.Sticky">
+        <Button color="Color.Primary" Size="Size.Small" Clicked="OpenRoomModalAsync" Position="Position.Sticky">
             <Icon Name="IconName.PlusSquare" />
             @L["NewRoom"]
         </Button>
-    </Column>    
+    </Column>
 </Row>
 
-<Card>
-    <Column>
-        <CreateUpdateModal @ref="CreateFloorModalRef"
-                           Visible="IsCreateModalVisible"
-                           VisibleChanged="@(v => IsCreateModalVisible = v)"
-                           OnCreated="ReloadFloorsAsync" />
-    </Column>
-    
-</Card>
+<CreateFloorModal @ref="FloorModalRef"
+                  Visible="IsCreateModalVisible"
+                  VisibleChanged="@(v => IsCreateModalVisible = v)"
+                  OnCreated="ReloadFloorsAsync" />
 
-
-
+<CreateRoomModal @ref="RoomModalRef"
+                 Visible="IsCreateModalVisible"
+                 VisibleChanged="@(v => IsCreateModalVisible = v)"
+                 FloorId="@SelectedFloorId"
+                 OnCreated="ReloadFloorsAsync" />
 
 @code {
     private List<FloorDto> Floor = new();
     private string SelectedTab;
     private bool IsCreateModalVisible;
-    private CreateUpdateModal CreateFloorModalRef;
+    private CreateFloorModal FloorModalRef;
+
+    private Guid SelectedFloorId
+    {
+        get
+        {
+            return Guid.TryParse(SelectedTab, out var id) ? id : Guid.Empty;
+        }
+    }
+
+    private bool IsRoomModalVisible;
+    private CreateRoomModal RoomModalRef;
 
     protected override async Task OnInitializedAsync()
     {
@@ -78,9 +88,16 @@
         return Task.CompletedTask;
     }
 
-    private async Task OpenCreateModalAsync()
+    private async Task OpenFloorModalAsync()
     {
-        CreateFloorModalRef?.Reset();
+        FloorModalRef?.Reset();
+        IsCreateModalVisible = true;
+        await Task.CompletedTask;
+    }
+
+    private async Task OpenRoomModalAsync()
+    {
+        RoomModalRef?.Reset();
         IsCreateModalVisible = true;
         await Task.CompletedTask;
     }
