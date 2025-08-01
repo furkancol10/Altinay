@@ -1,0 +1,101 @@
+﻿@page "/meeting-bookings"
+@using Altinay.Meeting
+@using Altinay.Meeting.CreateUpdateDtos
+@using Altinay.Meeting.IAppServices
+@using Altinay.Meeting.MeetingRoomDtos
+@using Blazorise
+@using Volo.Abp
+@using Volo.Abp.Application.Dtos
+@using Volo.Abp.AspNetCore.Components.Web
+@using Altinay.Blazor.Components.Pages
+
+@inject IBookingAppService BookingAppService
+@inject IRoomAppService RoomAppService
+@inject IFloorAppService FloorAppService
+
+@inherits AbpCrudPageBase<IFloorAppService,FloorDto,Guid,FloorInputListDto,CreateUpdateFloorDto>
+
+
+<Row>
+    <Column>
+        <Tabs SelectedTab="@SelectedTab" SelectedTabChanged="@OnSelectedTabChanged">
+            <Items>
+                @foreach (var floor in Floor)
+                {
+                    <Tab Name="@floor.Id.ToString()"> @floor.Name</Tab>
+                }
+            </Items>
+            <Content>
+                @foreach (var floor in Floor)
+                {
+                    <TabPanel Name="@floor.Id.ToString()">
+                        <Strong>@floor.Description</Strong>
+                    </TabPanel>
+                }
+            </Content>
+        </Tabs>
+    </Column>
+    <Column ColumnSize="ColumnSize.IsAuto">
+        <Button color="Color.Primary" Size="Size.Small" Clicked="OpenCreateModalAsync" Position="Position.Sticky">
+            <Icon Name="IconName.PlusSquare" />
+            @L["NewFloor"]
+        </Button>
+        <Button color="Color.Primary" Size="Size.Small" Clicked="OpenCreateModalAsync" Position="Position.Sticky">
+            <Icon Name="IconName.PlusSquare" />
+            @L["NewRoom"]
+        </Button>
+    </Column>    
+</Row>
+
+<Card>
+    <Column>
+        <CreateUpdateModal @ref="CreateFloorModalRef"
+                           Visible="IsCreateModalVisible"
+                           VisibleChanged="@(v => IsCreateModalVisible = v)"
+                           OnCreated="ReloadFloorsAsync" />
+    </Column>
+    
+</Card>
+
+
+
+
+@code {
+    private List<FloorDto> Floor = new();
+    private string SelectedTab;
+    private bool IsCreateModalVisible;
+    private CreateUpdateModal CreateFloorModalRef;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await ReloadFloorsAsync();
+        await base.OnInitializedAsync();
+    }
+
+    private Task OnSelectedTabChanged(string name)
+    {
+        SelectedTab = name;
+        return Task.CompletedTask;
+    }
+
+    private async Task OpenCreateModalAsync()
+    {
+        CreateFloorModalRef?.Reset();
+        IsCreateModalVisible = true;
+        await Task.CompletedTask;
+    }
+
+    private async Task ReloadFloorsAsync()
+    {
+        var result = await FloorAppService.GetListAsync(new PagedAndSortedResultRequestDto());
+        Floor = result.Items.ToList();
+
+        if (Floor.Any())
+            SelectedTab = Floor.Last().Id.ToString();
+    }
+
+
+
+
+
+}
