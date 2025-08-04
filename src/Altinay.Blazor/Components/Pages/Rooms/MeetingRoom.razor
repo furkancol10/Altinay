@@ -43,7 +43,7 @@
                                             Description: @room.Description <br />
                                             Capacity: @room.Capacity<b></b>
                                         </CardText>
-                                        <Button Color="Color.Primary" Size="Size.Small">
+                                        <Button Color="Color.Primary" Size="Size.Small" Position="Position.Static" Clicked="() => OpenBookingModalAsync(room)">
                                             Book Room
                                         </Button>
                                     </CardBody>
@@ -81,14 +81,24 @@
                  FloorId="@SelectedFloorId"
                  OnCreated="ReloadRoomsAsync" />
 
+<CreateBookingModal @ref="BookingModalRef"
+                    Visible="IsCreateBookingVisible"
+                    VisibleChanged="@(v => IsCreateBookingVisible = v)"
+                    RoomId="@SelectedRoomId"
+                    RoomName="@SelectedRoomName"/>
+
 @code {
     private List<FloorDto> Floor = new();
     private List<RoomDto> Rooms = new();
     private string SelectedTab;
     private bool IsCreateFloorVisible;
     private bool IsCreateRoomVisible;
+    private bool IsCreateBookingVisible;
     private CreateRoomModal RoomModalRef;
     private CreateFloorModal FloorModalRef;
+    private CreateBookingModal BookingModalRef;
+    private Guid SelectedRoomId;
+    private string SelectedRoomName;
 
     private Guid SelectedFloorId
     {
@@ -97,9 +107,9 @@
             return Guid.TryParse(SelectedTab, out var id) ? id : Guid.Empty;
         }
     }
-
-
-
+    //
+    //Functions
+    //
     protected override async Task OnInitializedAsync()
     {
         await ReloadRoomsAsync();
@@ -160,9 +170,15 @@
 
             Rooms = result.Items.ToList();
         }
+    }    
+
+    private async Task OpenBookingModalAsync(RoomDto room)
+    {
+        SelectedRoomId = room.Id;
+        SelectedRoomName = room.Name;
+        IsCreateBookingVisible = true;
+        await BookingModalRef.ShowAsync();
     }
-
-
 
 
 
