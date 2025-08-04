@@ -11,5 +11,7 @@ namespace Altinay.Meeting.MeetingRoomDtos
     {
         public string Name { get; set; }
         public string Description { get; set; }
+
+        public List<RoomDto> Rooms { get; set; } = new();
     }
 }

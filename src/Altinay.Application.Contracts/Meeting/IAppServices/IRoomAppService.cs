@@ -6,7 +6,7 @@ using Volo.Abp.Application.Services;
 
 namespace Altinay.Meeting.IAppServices
 {
-    public interface IRoomAppService : ICrudAppService<RoomDto, Guid, PagedAndSortedResultRequestDto,CreateUpdateRoomDto>
+    public interface IRoomAppService : ICrudAppService<RoomDto, Guid, RoomInputListDto,CreateUpdateRoomDto>
     {
 
     }

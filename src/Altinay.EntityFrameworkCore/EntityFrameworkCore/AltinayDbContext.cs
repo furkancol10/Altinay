@@ -39,7 +39,7 @@ public class AltinayDbContext :
     //
     public DbSet<Floor> Floors { get; set; }
     public DbSet<Room> Rooms { get; set; }
-    public DbSet<Floor> Bookings { get; set; }
+    public DbSet<Booking> Bookings { get; set; }
     #region Entities from the modules
 
     /* Notice: We only implemented IIdentityDbContext and ITenantManagementDbContext

@@ -10,6 +10,7 @@
 @using Volo.Abp.Application.Dtos
 @using Volo.Abp.AspNetCore.Components.Web
 @using Altinay.Blazor.Components.Pages
+@using Blazorise.Scheduler
 
 @inject IBookingAppService BookingAppService
 @inject IRoomAppService RoomAppService
@@ -18,30 +19,51 @@
 
 
 <Row>
-    <Column>
+    <Column ColumnSize="ColumnSize.Is10">
         <Tabs SelectedTab="@SelectedTab" SelectedTabChanged="@OnSelectedTabChanged">
             <Items>
-                @foreach (var floor in Floor)
+                @foreach (var floor in Floor.AsEnumerable().Reverse())
                 {
                     <Tab Name="@floor.Id.ToString()"> @floor.Name</Tab>
                 }
             </Items>
             <Content>
-                @foreach (var floor in Floor)
+
+                @foreach (var floor in Floor.AsEnumerable().Reverse())
                 {
                     <TabPanel Name="@floor.Id.ToString()">
                         <Strong>@floor.Description</Strong>
+                        <CardDeck>
+                            @foreach (var room in floor.Rooms)
+                            {
+                                <Card>
+                                    <CardBody Border="Border.Rounded">
+                                        <CardTitle Size="3">Name: @room.Name</CardTitle>
+                                        <CardText>
+                                            Description: @room.Description <br />
+                                            Capacity: @room.Capacity<b></b>
+                                        </CardText>
+                                        <Button Color="Color.Primary" Size="Size.Small">
+                                            Book Room
+                                        </Button>
+                                    </CardBody>
+                                </Card>
+                            }
+                        </CardDeck>
                     </TabPanel>
                 }
             </Content>
+
         </Tabs>
     </Column>
     <Column ColumnSize="ColumnSize.IsAuto">
-        <Button color="Color.Primary" Size="Size.Small" Clicked="OpenFloorModalAsync" Position="Position.Sticky">
+        <Button color="Color.Primary" Size="Size.Small" Clicked="OpenFloorModalAsync" Position="Position.Static">
             <Icon Name="IconName.PlusSquare" />
             @L["NewFloor"]
         </Button>
-        <Button color="Color.Primary" Size="Size.Small" Clicked="OpenRoomModalAsync" Position="Position.Sticky">
+    </Column>
+    <Column>
+        <Button color="Color.Primary" Size="Size.Small" Clicked="OpenRoomModalAsync" Position="Position.Static">
             <Icon Name="IconName.PlusSquare" />
             @L["NewRoom"]
         </Button>
@@ -49,20 +71,23 @@
 </Row>
 
 <CreateFloorModal @ref="FloorModalRef"
-                  Visible="IsCreateModalVisible"
-                  VisibleChanged="@(v => IsCreateModalVisible = v)"
+                  Visible="IsCreateFloorVisible"
+                  VisibleChanged="@(v => IsCreateFloorVisible = v)"
                   OnCreated="ReloadFloorsAsync" />
 
 <CreateRoomModal @ref="RoomModalRef"
-                 Visible="IsCreateModalVisible"
-                 VisibleChanged="@(v => IsCreateModalVisible = v)"
+                 Visible="IsCreateRoomVisible"
+                 VisibleChanged="@(v => IsCreateRoomVisible = v)"
                  FloorId="@SelectedFloorId"
-                 OnCreated="ReloadFloorsAsync" />
+                 OnCreated="ReloadRoomsAsync" />
 
 @code {
     private List<FloorDto> Floor = new();
+    private List<RoomDto> Rooms = new();
     private string SelectedTab;
-    private bool IsCreateModalVisible;
+    private bool IsCreateFloorVisible;
+    private bool IsCreateRoomVisible;
+    private CreateRoomModal RoomModalRef;
     private CreateFloorModal FloorModalRef;
 
     private Guid SelectedFloorId
@@ -73,11 +98,11 @@
         }
     }
 
-    private bool IsRoomModalVisible;
-    private CreateRoomModal RoomModalRef;
+
 
     protected override async Task OnInitializedAsync()
     {
+        await ReloadRoomsAsync();
         await ReloadFloorsAsync();
         await base.OnInitializedAsync();
     }
@@ -91,24 +116,50 @@
     private async Task OpenFloorModalAsync()
     {
         FloorModalRef?.Reset();
-        IsCreateModalVisible = true;
+        IsCreateFloorVisible = true;
         await Task.CompletedTask;
     }
 
     private async Task OpenRoomModalAsync()
     {
         RoomModalRef?.Reset();
-        IsCreateModalVisible = true;
+        IsCreateRoomVisible = true;
         await Task.CompletedTask;
     }
 
     private async Task ReloadFloorsAsync()
     {
         var result = await FloorAppService.GetListAsync(new PagedAndSortedResultRequestDto());
-        Floor = result.Items.ToList();
+        var floorList = result.Items.ToList();
 
-        if (Floor.Any())
-            SelectedTab = Floor.Last().Id.ToString();
+        foreach (var floor in floorList)
+        {
+            var roomResult = await RoomAppService.GetListAsync(new RoomInputListDto
+            {
+                FloorID = floor.Id
+            });
+
+            floor.Rooms = roomResult.Items.ToList();
+        }
+
+        Floor = floorList;
+
+        if (Floor.Any() && string.IsNullOrWhiteSpace(SelectedTab))
+        {
+            SelectedTab = Floor.First().Id.ToString();
+        }
+    }
+    private async Task ReloadRoomsAsync()
+    {
+        if (SelectedFloorId != Guid.Empty)
+        {
+            var result = await RoomAppService.GetListAsync(new RoomInputListDto
+            {
+                FloorID = SelectedFloorId
+            });
+
+            Rooms = result.Items.ToList();
+        }
     }
 
 

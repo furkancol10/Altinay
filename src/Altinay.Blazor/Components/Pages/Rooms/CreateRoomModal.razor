@@ -7,6 +7,7 @@
 @using Localization
 @using Microsoft.Extensions.Localization
 @using Volo.Abp.AspNetCore.Components.Web
+@using Volo.Abp.Validation
 @inject IRoomAppService RoomAppService
 @inject IStringLocalizer<AltinayResource> L
 @* @inherits AltinayComponentBase *@
@@ -29,7 +30,7 @@
                 </Field>
                 <Field>
                     <FieldLabel RequiredIndicator>@L["RoomCapacity"]</FieldLabel>
-                    <NumericEdit TValue="int" @bind-Value=@NewEntity.Capacity" />
+                    <NumericEdit TValue="int" @bind-Value="@NewEntity.Capacity" />
                 </Field>
             </Validations>
         </ModalBody>

@@ -11,9 +11,7 @@ namespace Altinay.Meeting.CreateUpdateDtos
         [Required]
         public string Description { get; set; }
         [Required]
-        public Guid FloorID { get; set; }
-        [Required]
-        public string Floor { get; set; }
+        public Guid FloorID { get; set; }        
         [Required]
         public int Capacity { get; set; }
         public Availibility Availibility { get; set; }
