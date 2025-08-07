@@ -6,7 +6,7 @@ using Volo.Abp.Domain.Repositories;
 
 namespace Altinay.Personel
 {
-    public interface IPersonelRequestRepository : IRepository<PersonelRequest>
+    public interface IPersonelRequestRepository : IRepository<PersonelRequest, Guid>
     {
         
     }

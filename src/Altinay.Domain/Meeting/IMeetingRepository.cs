@@ -1,8 +1,9 @@
-﻿using Volo.Abp.Domain.Repositories;
+﻿using System;
+using Volo.Abp.Domain.Repositories;
 
 namespace Altinay.Meeting
 {
-    public interface IMeetingRepository : IRepository<Floor>
+    public interface IMeetingRepository : IRepository<Floor, Guid>
     {
     }
 }

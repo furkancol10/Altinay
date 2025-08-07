@@ -1,6 +1,7 @@
 ﻿using System;
 using Volo.Abp.Application.Dtos;
 using Altinay.Meeting;
+using System.Collections.Generic;
 
 namespace Altinay.Meeting.MeetingRoomDtos
 {
