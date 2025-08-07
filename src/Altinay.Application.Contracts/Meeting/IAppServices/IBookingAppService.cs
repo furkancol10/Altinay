@@ -10,5 +10,5 @@ namespace Altinay.Meeting.IAppServices;
 
 public interface IBookingAppService : ICrudAppService<BookingDto, Guid, BookingInputListDto, CreateUpdateBookingDto>
 {
-    Task CreateAppointmentAsync(List<AppointmentDto> input);
+    //Task CreateAppointmentAsync(List<AppointmentDto> input);
 }

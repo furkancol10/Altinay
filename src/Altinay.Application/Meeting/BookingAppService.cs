@@ -2,11 +2,12 @@
 using Altinay.Meeting.IAppServices;
 using Altinay.Meeting.MeetingRoomDtos;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 using Volo.Abp.Domain.Repositories;
-using Volo.Abp.Application.Dtos;
 
 namespace Altinay.Meeting
 {
@@ -15,6 +16,8 @@ namespace Altinay.Meeting
         public BookingAppService(IRepository<Booking, Guid> repository) : base(repository)
         {
         }
+
+        //Task CreateAppointmentAsync(List<AppointmentDto> input);
 
         protected override async Task<IQueryable<Booking>> CreateFilteredQueryAsync(BookingInputListDto input)
         {

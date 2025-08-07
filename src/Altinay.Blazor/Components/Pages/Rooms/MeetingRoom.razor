@@ -17,6 +17,7 @@
 @inject IFloorAppService FloorAppService
 @inject IStringLocalizer<AltinayResource> L
 
+@inherits AbpCrudPageBase<IBookingAppService, BookingDto, Guid, BookingInputListDto, CreateUpdateBookingDto>
 
 <Row>
     <Column ColumnSize="ColumnSize.Is10">
@@ -28,7 +29,6 @@
                 }
             </Items>
             <Content>
-
                 @foreach (var floor in Floor.AsEnumerable().Reverse())
                 {
                     <TabPanel Name="@floor.Id.ToString()">
@@ -42,10 +42,7 @@
                                         <CardText>
                                             Description: @room.Description <br />
                                             Capacity: @room.Capacity<b></b>
-                                        </CardText>
-                                        <Button Color="Color.Primary" Size="Size.Small" Position="Position.Static" Clicked="() => OpenBookingModalAsync(room)">
-                                            Book Room
-                                        </Button>
+                                        </CardText>                                        
                                     </CardBody>
                                 </Card>
                             }
@@ -53,7 +50,6 @@
                     </TabPanel>
                 }
             </Content>
-
         </Tabs>
     </Column>
     <Column ColumnSize="ColumnSize.IsAuto">
@@ -81,25 +77,45 @@
                  FloorId="@SelectedFloorId"
                  OnCreated="ReloadRoomsAsync" />
 
-<CreateBookingModal @ref="BookingModalRef"
+
+@*
+        Rezerv Modalını burada yaz
+        Fonksiyon olarak yaz
+        Event olarak yaz
+*@
+
+
+@* <CreateBookingModal @ref="BookingModalRef"
                     Visible="IsCreateBookingVisible"
                     VisibleChanged="@(v => IsCreateBookingVisible = v)"
                     RoomId="@SelectedRoomId"
-                    RoomName="@SelectedRoomName"/>
+                    RoomName="@SelectedRoomName" /> *@
+
+
 
 @code {
+    [Parameter] public Guid RoomId { get; set; }
+    [Parameter] public String RoomName { get; set; } = "";
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+
     private List<FloorDto> Floor = new();
     private List<RoomDto> Rooms = new();
+
     private string SelectedTab;
+
     private bool IsCreateFloorVisible;
     private bool IsCreateRoomVisible;
-    private bool IsCreateBookingVisible;
-    private CreateRoomModal RoomModalRef;
-    private CreateFloorModal FloorModalRef;
-    private CreateBookingModal BookingModalRef;
-    private Guid SelectedRoomId;
-    private string SelectedRoomName;
 
+    private CreateRoomModal RoomModalRef = new();
+    private CreateFloorModal FloorModalRef = new();
+
+    
+
+    private Validations CreateValidations;        
+    //
+    // Functions
+    //
     private Guid SelectedFloorId
     {
         get
@@ -116,27 +132,35 @@
         await ReloadFloorsAsync();
         await base.OnInitializedAsync();
     }
-
+    //
+    //
+    //
     private Task OnSelectedTabChanged(string name)
     {
         SelectedTab = name;
         return Task.CompletedTask;
     }
-
+    //
+    //
+    //
     private async Task OpenFloorModalAsync()
     {
         FloorModalRef?.Reset();
         IsCreateFloorVisible = true;
         await Task.CompletedTask;
     }
-
+    //
+    //
+    //
     private async Task OpenRoomModalAsync()
     {
         RoomModalRef?.Reset();
         IsCreateRoomVisible = true;
         await Task.CompletedTask;
     }
-
+    //
+    //
+    //
     private async Task ReloadFloorsAsync()
     {
         var result = await FloorAppService.GetListAsync(new PagedAndSortedResultRequestDto());
@@ -159,6 +183,9 @@
             SelectedTab = Floor.First().Id.ToString();
         }
     }
+    //
+    //
+    //
     private async Task ReloadRoomsAsync()
     {
         if (SelectedFloorId != Guid.Empty)
@@ -170,16 +197,10 @@
 
             Rooms = result.Items.ToList();
         }
-    }    
-
-    private async Task OpenBookingModalAsync(RoomDto room)
-    {
-        SelectedRoomId = room.Id;
-        SelectedRoomName = room.Name;
-        IsCreateBookingVisible = true;
-        await BookingModalRef.ShowAsync();
     }
-
+    //
+    //
+    //
 
 
 }
