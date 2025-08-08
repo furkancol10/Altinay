@@ -7,17 +7,15 @@ namespace Altinay.Meeting.CreateUpdateDtos
 {
     public class CreateUpdateBookingDto
     {
-        [Required]
         public Guid RoomID { get; set; }
-        [Required]
-        public string BookedBy { get; set; }
-        [Required]
-        public DateTime StartTime { get; set; }
-        [Required]
-        public DateTime EndTime { get; set; }
-        [Required]
+        public Room Room{ get; set; }
         public string MeetingTitle { get; set; }
-        [Required]
-        public List<string> Participants { get; set; }
+        public DateTime StartTime { get; set; }
+        public DateTime EndTime { get; set; }
+        public string BookedBy { get; set; }
+        public string Description { get; set; }
+        public bool AllDay { get; set; }
+
+        public List<string> Participant { get; set; }
     }
 }

@@ -1,16 +1,17 @@
 ﻿@page "/meeting-bookings"
+@using Microsoft.Extensions.Localization
 @using Altinay.Localization
 @using Altinay.Meeting
 @using Altinay.Meeting.CreateUpdateDtos
 @using Altinay.Meeting.IAppServices
 @using Altinay.Meeting.MeetingRoomDtos
+@using Altinay.Blazor.Components.Pages
 @using Blazorise
-@using Microsoft.Extensions.Localization
+@using Blazorise.Scheduler
 @using Volo.Abp
+@using Volo.Abp.Users
 @using Volo.Abp.Application.Dtos
 @using Volo.Abp.AspNetCore.Components.Web
-@using Altinay.Blazor.Components.Pages
-@using Blazorise.Scheduler
 
 @inject IBookingAppService BookingAppService
 @inject IRoomAppService RoomAppService
@@ -37,13 +38,16 @@
                             @foreach (var room in floor.Rooms)
                             {
                                 <Card>
-                                    <CardBody Border="Border.Rounded">
-                                        <CardTitle Size="3">Name: @room.Name</CardTitle>
+                                    <CardBody Border="Border.Rounded.Primary">
+                                        <CardTitle Size="3">@room.Name</CardTitle>
                                         <CardText>
                                             Description: @room.Description <br />
                                             Capacity: @room.Capacity<b></b>
                                         </CardText>                                        
                                     </CardBody>
+                                    <CardFooter>
+                                        <Button Color="Color.Primary">Book @room.Name</Button>
+                                    </CardFooter>
                                 </Card>
                             }
                         </CardDeck>
@@ -124,7 +128,7 @@
         }
     }
     //
-    //Functions
+    //When Program Initialized
     //
     protected override async Task OnInitializedAsync()
     {
@@ -133,7 +137,7 @@
         await base.OnInitializedAsync();
     }
     //
-    //
+    // Selecting Tab
     //
     private Task OnSelectedTabChanged(string name)
     {
@@ -141,7 +145,7 @@
         return Task.CompletedTask;
     }
     //
-    //
+    // Floor Modal
     //
     private async Task OpenFloorModalAsync()
     {
@@ -150,6 +154,7 @@
         await Task.CompletedTask;
     }
     //
+    // Room Modal
     //
     //
     private async Task OpenRoomModalAsync()
@@ -159,6 +164,7 @@
         await Task.CompletedTask;
     }
     //
+    // Load Floors When Opening Program
     //
     //
     private async Task ReloadFloorsAsync()
@@ -184,6 +190,7 @@
         }
     }
     //
+    // Load Rooms When Opening Program
     //
     //
     private async Task ReloadRoomsAsync()
