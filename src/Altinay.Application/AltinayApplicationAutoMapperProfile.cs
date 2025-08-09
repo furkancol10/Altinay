@@ -26,8 +26,8 @@ public class AltinayApplicationAutoMapperProfile : Profile
         CreateMap<CreateUpdateFloorDto, Floor>();
         CreateMap<Floor, CreateUpdateFloorDto>();
         
-        CreateMap<Floor, BookingDto>();
-        CreateMap<CreateUpdateBookingDto, Floor>();
-        CreateMap<Floor, CreateUpdateBookingDto>();
+        CreateMap<Booking, BookingDto>();
+        CreateMap<CreateUpdateBookingDto, Booking>();
+        CreateMap<Booking, CreateUpdateBookingDto>();
     }
 }
