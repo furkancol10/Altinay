@@ -169,7 +169,7 @@ public class AltinayDbContext :
             //
             //Which Floor this room belongs to
             //
-            b.HasOne(r => r.Floor)
+            b.HasOne<Floor>()
             .WithMany()
             .HasForeignKey(r => r.FloorID);
         });
@@ -179,7 +179,7 @@ public class AltinayDbContext :
             b.ToTable(AltinayConsts.DbTablePrefix + "Booking", AltinayConsts.DbSchema);
             b.ConfigureByConvention(); //auto configure for the base class props
                         
-            b.HasOne(r => r.Room)
+            b.HasOne<Room>()
             .WithMany()
             .HasForeignKey(r => r.RoomID)
             .IsRequired();     

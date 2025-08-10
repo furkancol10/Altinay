@@ -17,19 +17,20 @@
 @inject IFloorAppService FloorAppService
 @inject IStringLocalizer<AltinayResource> L
 
+@inherits AbpCrudPageBase<IBookingAppService, BookingDto, Guid, BookingInputListDto, CreateUpdateBookingDto>
 
 <Row>
     <Column ColumnSize="ColumnSize.Is10">
         <Tabs SelectedTab="@SelectedTab" SelectedTabChanged="@OnSelectedTabChanged">
             <Items>
-                @foreach (var floor in Floor.AsEnumerable().Reverse())
+                @foreach (var floor in Floors.AsEnumerable().Reverse())
                 {
                     <Tab Name="@floor.Id.ToString()"> @floor.Name</Tab>
                 }
             </Items>
             <Content>
 
-                @foreach (var floor in Floor.AsEnumerable().Reverse())
+                @foreach (var floor in Floors.AsEnumerable().Reverse())
                 {
                     <TabPanel Name="@floor.Id.ToString()">
                         <Strong>@floor.Description</Strong>
@@ -70,6 +71,24 @@
     </Column>
 </Row>
 
+<Modal @ref="BookingModalRef" Visible="@Visible" VisibleChanged="@VisibleChanged">
+    <ModalContent IsCentered="true" Size="ModalSize.ExtraLarge" Height="Height.Auto">
+        <ModalHeader>
+            <ModalTitle>Book Room: @RoomName</ModalTitle>
+        </ModalHeader>
+        <ModalBody>
+            <Scheduler TItem="Appointment" @bind-Date="@selectedDate" Data="@Appointments" SelectedView="SchedulerView.Week"
+                       Editable
+                       SlotSelectionMode="SchedulerSlotSelectionMode.Mouse">
+                <SchedulerToolbar />
+                <SchedulerViews>
+                    <SchedulerWeekView StartTime="@startTime" EndTime="@endTime" WorkDayStart="@workDayStart" WorkDayEnd="@workDayEnd" />
+                </SchedulerViews>
+            </Scheduler>
+        </ModalBody>
+    </ModalContent>
+</Modal>
+
 <CreateFloorModal @ref="FloorModalRef"
                   Visible="IsCreateFloorVisible"
                   VisibleChanged="@(v => IsCreateFloorVisible = v)"
@@ -81,25 +100,45 @@
                  FloorId="@SelectedFloorId"
                  OnCreated="ReloadRoomsAsync" />
 
-<CreateBookingModal @ref="BookingModalRef"
+@* <CreateBookingModal @ref="BookingModalRef"
                     Visible="IsCreateBookingVisible"
                     VisibleChanged="@(v => IsCreateBookingVisible = v)"
                     RoomId="@SelectedRoomId"
-                    RoomName="@SelectedRoomName"/>
+                    RoomName="@SelectedRoomName"/> *@
 
 @code {
-    private List<FloorDto> Floor = new();
+    [Parameter] public Guid RoomId { get; set; }
+    [Parameter] public String RoomName { get; set; } = "";
+    [Parameter] public bool Visible { get; set; }
+    [Parameter] public EventCallback<bool> VisibleChanged { get; set; }
+
+    private List<FloorDto> Floors = new();
     private List<RoomDto> Rooms = new();
+    List<Appointment> Appointments = new List<Appointment>();
+
     private string SelectedTab;
+    private string SelectedRoomName;
+
     private bool IsCreateFloorVisible;
     private bool IsCreateRoomVisible;
     private bool IsCreateBookingVisible;
+
     private CreateRoomModal RoomModalRef;
     private CreateFloorModal FloorModalRef;
-    private CreateBookingModal BookingModalRef;
-    private Guid SelectedRoomId;
-    private string SelectedRoomName;
+    private Modal BookingModalRef;
 
+
+    private Validations CreateValidations;
+
+
+    private DateOnly selectedDate = DateOnly.FromDateTime(DateTime.Today);
+    private SchedulerView selectedView = SchedulerView.Week;
+    private TimeOnly startTime = new TimeOnly(8, 0);
+    private TimeOnly endTime = new TimeOnly(18, 0);
+    private TimeOnly workDayStart = new TimeOnly(8, 0);
+    private TimeOnly workDayEnd = new TimeOnly(18, 0);
+
+    private Guid SelectedRoomId;
     private Guid SelectedFloorId
     {
         get
@@ -114,6 +153,7 @@
     {
         await ReloadRoomsAsync();
         await ReloadFloorsAsync();
+        await ShowAsync();
         await base.OnInitializedAsync();
     }
 
@@ -152,11 +192,11 @@
             floor.Rooms = roomResult.Items.ToList();
         }
 
-        Floor = floorList;
+        Floors = floorList;
 
-        if (Floor.Any() && string.IsNullOrWhiteSpace(SelectedTab))
+        if (Floors.Any() && string.IsNullOrWhiteSpace(SelectedTab))
         {
-            SelectedTab = Floor.First().Id.ToString();
+            SelectedTab = Floors.First().Id.ToString();
         }
     }
     private async Task ReloadRoomsAsync()
@@ -176,10 +216,53 @@
     {
         SelectedRoomId = room.Id;
         SelectedRoomName = room.Name;
-        IsCreateBookingVisible = true;
-        await BookingModalRef.ShowAsync();
+
+        IsCreateBookingVisible = true;      
+        await ShowAsync();                  
+    }
+
+    public class Appointment
+    {
+        public Appointment()
+        {
+        }
+
+        public Appointment(string title, string description, DateTime start, DateTime end, bool allDay = false)
+        {
+            Id = Guid.NewGuid().ToString();
+            Title = title;
+            Description = description;
+            Start = start;
+            End = end;
+            AllDay = allDay;
+        }
+
+        public string Id { get; set; }
+        public string Title { get; set; }
+        public string Description { get; set; }
+        public DateTime Start { get; set; }
+        public DateTime End { get; set; }
+        public bool AllDay { get; set; } = false;
+        public string RecurrenceRule { get; set; }
     }
 
 
+    public async Task ShowAsync()
+    {
+        var result = await BookingAppService.GetListAsync(new BookingInputListDto
+        {
+            RoomID = RoomId
+        });
+
+        Appointments = result.Items.Select(x =>
+            new Appointment(
+                x.MeetingTitle,
+                x.Participants,
+                x.StartTime,
+                x.EndTime,
+                false
+            )
+        ).ToList();
+    }
 
 }
