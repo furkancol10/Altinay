@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Volo.Abp.Domain.Entities.Auditing;
 
 namespace Altinay.Meeting
@@ -10,6 +11,6 @@ namespace Altinay.Meeting
         public DateTime StartTime { get;  set; }
         public DateTime EndTime { get;  set; }
         public string MeetingTitle { get;  set; }
-        public string Participants { get;  set; }
+        public ICollection<Participant> Participants { get; set; } = new List<Participant>();
     }
 }

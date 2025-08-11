@@ -1,6 +1,7 @@
 ﻿using System;
 using Volo.Abp.Application.Dtos;
 using Altinay.Meeting;
+using System.Collections.Generic;
 
 namespace Altinay.Meeting.MeetingRoomDtos
 {
@@ -12,6 +13,6 @@ namespace Altinay.Meeting.MeetingRoomDtos
         public DateTime StartTime { get; set; }
         public DateTime EndTime { get; set; }
         public string MeetingTitle { get; set; }
-        public string Participants { get; set; }
+        public ICollection<Participant> Participants { get; set; }
     }
 }

@@ -11,6 +11,7 @@
 @using Volo.Abp.AspNetCore.Components.Web
 @using Altinay.Blazor.Components.Pages
 @using Blazorise.Scheduler
+@using Volo.Abp.Users
 
 @inject IBookingAppService BookingAppService
 @inject IRoomAppService RoomAppService
@@ -71,21 +72,29 @@
     </Column>
 </Row>
 
-<Modal @ref="BookingModalRef" Visible="@Visible" VisibleChanged="@VisibleChanged">
+<Modal @ref="BookingModalRef" @bind-Visible="@IsCreateBookingVisible">
     <ModalContent IsCentered="true" Size="ModalSize.ExtraLarge" Height="Height.Auto">
         <ModalHeader>
             <ModalTitle>Book Room: @RoomName</ModalTitle>
+            <CloseButton></CloseButton>
         </ModalHeader>
         <ModalBody>
-            <Scheduler TItem="Appointment" @bind-Date="@selectedDate" Data="@Appointments" SelectedView="SchedulerView.Week"
+            <Scheduler TItem="Appointment" @ref="SchedulerRef" @bind-Date="@selectedDate" Data="@Appointments" SelectedView="SchedulerView.Week"
                        Editable
-                       SlotSelectionMode="SchedulerSlotSelectionMode.Mouse">
+                       Draggable
+                       SlotSelectionMode="SchedulerSlotSelectionMode.Mouse"
+                       SlotsSelected="OnSlotsSelected"
+                       ItemInserted="OnItemInserted">
                 <SchedulerToolbar />
                 <SchedulerViews>
                     <SchedulerWeekView StartTime="@startTime" EndTime="@endTime" WorkDayStart="@workDayStart" WorkDayEnd="@workDayEnd" />
+                    <SchedulerMonthView StartTime="@startTime" EndTime="@endTime" WorkDayStart="@workDayStart" WorkDayEnd="@workDayEnd" />
                 </SchedulerViews>
             </Scheduler>
         </ModalBody>
+        <ModalFooter>
+            <SubmitButton>Save</SubmitButton>
+        </ModalFooter>
     </ModalContent>
 </Modal>
 
@@ -126,7 +135,7 @@
     private CreateRoomModal RoomModalRef;
     private CreateFloorModal FloorModalRef;
     private Modal BookingModalRef;
-
+    private Scheduler<Appointment> SchedulerRef;
 
     private Validations CreateValidations;
 
@@ -153,7 +162,6 @@
     {
         await ReloadRoomsAsync();
         await ReloadFloorsAsync();
-        await ShowAsync();
         await base.OnInitializedAsync();
     }
 
@@ -210,15 +218,61 @@
 
             Rooms = result.Items.ToList();
         }
-    }    
+    }
 
     private async Task OpenBookingModalAsync(RoomDto room)
     {
         SelectedRoomId = room.Id;
         SelectedRoomName = room.Name;
 
-        IsCreateBookingVisible = true;      
-        await ShowAsync();                  
+        //await
+        IsCreateBookingVisible = true;
+    }
+
+    private async Task LoadAppointmentAsync(Guid roomId)
+    {
+        var result = await BookingAppService.GetListAsync(new BookingInputListDto
+        {
+            RoomID = roomId
+        });
+
+        Appointments = result.Items.Select(x => new Appointment(
+            x.MeetingTitle,
+            x.Participants.ToString(),
+            x.StartTime,
+            x.EndTime,
+            false
+        )
+            { Id = x.Id.ToString() }).ToList();
+    }
+
+    private async Task OnSlotsSelected(SchedulerSlotsSelectedEventArgs args)
+    {
+        var draft = new Appointment("New Meeting", "", args.Start, args.End, false);
+
+        await SchedulerRef.New(draft);
+    }
+
+    private async Task OnItemInserted(SchedulerInsertedItem<Appointment> args)
+    {
+        var appointment = args.Item;
+        if (string.IsNullOrWhiteSpace(appointment.Title) || string.IsNullOrWhiteSpace(appointment.Description))
+        {
+            // Handle validation error
+            return;
+        }
+        var createUpdateDto = new CreateUpdateBookingDto
+        {
+            RoomID = SelectedRoomId,
+            BookedBy = CurrentUser.Id.ToString(),
+            StartTime = appointment.Start,
+            EndTime = appointment.End,
+            MeetingTitle = appointment.Title,
+            Description = appointment.Description,
+            Participants = appointment.Participant
+        };
+        await BookingAppService.CreateAsync(createUpdateDto);
+        await LoadAppointmentAsync(SelectedRoomId);
     }
 
     public class Appointment
@@ -243,7 +297,6 @@
         public DateTime Start { get; set; }
         public DateTime End { get; set; }
         public bool AllDay { get; set; } = false;
-        public string RecurrenceRule { get; set; }
     }
 
 
@@ -257,7 +310,7 @@
         Appointments = result.Items.Select(x =>
             new Appointment(
                 x.MeetingTitle,
-                x.Participants,
+                x.Participants.ToString(),
                 x.StartTime,
                 x.EndTime,
                 false

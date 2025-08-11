@@ -40,6 +40,7 @@ public class AltinayDbContext :
     public DbSet<Floor> Floors { get; set; }
     public DbSet<Room> Rooms { get; set; }
     public DbSet<Booking> Bookings { get; set; }
+    public DbSet<Participant> Participants { get; set; }
     #region Entities from the modules
 
     /* Notice: We only implemented IIdentityDbContext and ITenantManagementDbContext
@@ -182,7 +183,23 @@ public class AltinayDbContext :
             b.HasOne<Room>()
             .WithMany()
             .HasForeignKey(r => r.RoomID)
-            .IsRequired();     
+            .IsRequired();
+
+
+            b.HasMany(x => x.Participants)
+            .WithOne()
+            .HasForeignKey(p => p.BookingID)
+            .IsRequired();
+        });
+
+        builder.Entity<Participant>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "Participant", AltinayConsts.DbSchema);
+            b.ConfigureByConvention(); //auto configure for the base class props
+            //
+            //Which Booking this participant belongs to
+            //
+            b.HasIndex(p => p.BookingID);
         });
     }
 }
