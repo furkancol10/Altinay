@@ -50,6 +50,15 @@ public class AltinayMenuContributor : IMenuContributor
             "/meeting-bookings",
             icon: "fas fa-calendar"
         )
+
+    );        context.Menu.AddItem(
+        new ApplicationMenuItem(
+            AltinayMenus.Project,
+            l["Menu:Project"],
+            "/project",
+            icon: "fas fa-calendar"
+        )
+
     );
 
         if (MultiTenancyConsts.IsEnabled)

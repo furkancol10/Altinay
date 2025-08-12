@@ -5,6 +5,7 @@ using Altinay.Personel.Departments;
 using Altinay.Personel.Managers;
 using AutoMapper;
 using Altinay.Meeting.CreateUpdateDtos;
+using Altinay.Projects;
 
 namespace Altinay;
 
@@ -29,5 +30,8 @@ public class AltinayApplicationAutoMapperProfile : Profile
         CreateMap<Floor, BookingDto>();
         CreateMap<CreateUpdateBookingDto, Floor>();
         CreateMap<Floor, CreateUpdateBookingDto>();
+
+        CreateMap<Project, ProjectDto>();
+        CreateMap<CreateUpdateProjectDto, Project>();
     }
 }

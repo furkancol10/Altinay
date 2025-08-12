@@ -2,6 +2,7 @@
 using Altinay.Personel;
 using Altinay.Personel.Departments;
 using Altinay.Personel.Managers;
+using Altinay.Projects;
 using Microsoft.EntityFrameworkCore;
 using Volo.Abp.AuditLogging.EntityFrameworkCore;
 using Volo.Abp.BackgroundJobs.EntityFrameworkCore;
@@ -67,6 +68,10 @@ public class AltinayDbContext :
     public DbSet<TenantConnectionString> TenantConnectionStrings { get; set; }
 
     #endregion
+    //
+    //Projects
+    //
+    public DbSet<Project> Projects { get; set; }
 
     public AltinayDbContext(DbContextOptions<AltinayDbContext> options)
         : base(options)
@@ -184,5 +189,23 @@ public class AltinayDbContext :
             .HasForeignKey(r => r.RoomID)
             .IsRequired();     
         });
+        //PROJECTS 
+        builder.Entity<Project>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "Project", AltinayConsts.DbSchema);
+
+            b.ConfigureByConvention(); // configure Id and auditing properties automatically
+
+            b.Property(x => x.ProjectName)
+                .IsRequired()
+                .HasMaxLength(128);
+
+            b.Property(x => x.ProjectDescription);
+        });
+
     }
 }
+/*
+b.Property(x => x.ProjectName).IsRequired().HasMaxLength(128);
+b.Property(x => x.ProjectID).IsRequired();
+b.Property(x => x.ProjectDescription).IsRequired(); */
