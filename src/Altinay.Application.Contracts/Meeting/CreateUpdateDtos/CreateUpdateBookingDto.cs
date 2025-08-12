@@ -11,8 +11,9 @@ namespace Altinay.Meeting.CreateUpdateDtos
         public string? BookedBy { get; set; }
         public DateTime StartTime { get; set; }
         public DateTime EndTime { get; set; }
-        public required string MeetingTitle { get; set; }
-        public string Description { get; set; }
+        public string MeetingTitle { get; set; }
         public ICollection<Participant> Participants { get; set; }
+        public string Description { get; set; }
+        public bool AllDay { get; set; }
     }
 }

@@ -12,5 +12,7 @@ namespace Altinay.Meeting
         public DateTime EndTime { get;  set; }
         public string MeetingTitle { get;  set; }
         public ICollection<Participant> Participants { get; set; } = new List<Participant>();
+        public string Description { get;  set; }
+        public bool AllDay { get;  set; }
     }
 }

@@ -17,6 +17,7 @@
 @inject IRoomAppService RoomAppService
 @inject IFloorAppService FloorAppService
 @inject IStringLocalizer<AltinayResource> L
+@inject ICurrentUser CurrentUser
 
 @inherits AbpCrudPageBase<IBookingAppService, BookingDto, Guid, BookingInputListDto, CreateUpdateBookingDto>
 
@@ -83,7 +84,6 @@
                        Editable
                        Draggable
                        SlotSelectionMode="SchedulerSlotSelectionMode.Mouse"
-                       SlotsSelected="OnSlotsSelected"
                        ItemInserted="OnItemInserted">
                 <SchedulerToolbar />
                 <SchedulerViews>
@@ -237,20 +237,15 @@
         });
 
         Appointments = result.Items.Select(x => new Appointment(
+            x.Id,
             x.MeetingTitle,
-            x.Participants.ToString(),
             x.StartTime,
             x.EndTime,
+            x.Description,
+            x.Participants.ToList(),
             false
         )
-            { Id = x.Id.ToString() }).ToList();
-    }
-
-    private async Task OnSlotsSelected(SchedulerSlotsSelectedEventArgs args)
-    {
-        var draft = new Appointment("New Meeting", "", args.Start, args.End, false);
-
-        await SchedulerRef.New(draft);
+        { Id = x.Id.ToString() }).ToList();
     }
 
     private async Task OnItemInserted(SchedulerInsertedItem<Appointment> args)
@@ -269,7 +264,7 @@
             EndTime = appointment.End,
             MeetingTitle = appointment.Title,
             Description = appointment.Description,
-            Participants = appointment.Participant
+            Participants = appointment.Participants
         };
         await BookingAppService.CreateAsync(createUpdateDto);
         await LoadAppointmentAsync(SelectedRoomId);
@@ -281,21 +276,25 @@
         {
         }
 
-        public Appointment(string title, string description, DateTime start, DateTime end, bool allDay = false)
+        public Appointment(Guid bookedBy, string title, DateTime start, DateTime end, string description, List<Participant> participants , bool allDay = false)
         {
             Id = Guid.NewGuid().ToString();
-            Title = title;
-            Description = description;
+            BookedBy = bookedBy.ToString();
             Start = start;
             End = end;
+            Title = title;
+            Description = description;
+            Participants = participants;
             AllDay = allDay;
         }
 
         public string Id { get; set; }
-        public string Title { get; set; }
-        public string Description { get; set; }
+        public string BookedBy { get; set; }
         public DateTime Start { get; set; }
         public DateTime End { get; set; }
+        public string Title { get; set; }
+        public string Description { get; set; }
+        public List<Participant> Participants { get; set; } = new();
         public bool AllDay { get; set; } = false;
     }
 
@@ -309,10 +308,12 @@
 
         Appointments = result.Items.Select(x =>
             new Appointment(
+                x.Id,
                 x.MeetingTitle,
-                x.Participants.ToString(),
                 x.StartTime,
                 x.EndTime,
+                x.Description,
+                x.Participants.ToList(),
                 false
             )
         ).ToList();
