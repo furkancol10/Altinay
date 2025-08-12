@@ -75,6 +75,7 @@
 
         "ProjectDescription": "Project Description",
         "ProjectName": "Project Name",
-        "ProjectID":"Project ID" 
+        "ProjectCode": "Project Code",
+         "NewProject": "New Project"
     }
 }

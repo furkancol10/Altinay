@@ -5,9 +5,10 @@
 @using Microsoft.Extensions.Localization
 @using Volo.Abp.AspNetCore.Components.Web
 @inject AbpBlazorMessageLocalizerHelper<AltinayResource> LH
+@inject IStringLocalizer<AltinayResource> L
 @inherits AbpCrudPageBase<IProjectAppService, ProjectDto, Guid, PagedAndSortedResultRequestDto, CreateUpdateProjectDto>
 
-<Card>
+<Card >
     <CardHeader>
         <Row Class="justify-content-between">
             <Column ColumnSize="ColumnSize.IsAuto">
@@ -20,39 +21,39 @@
     </CardHeader>
     <CardBody>
         <DataGrid TItem="ProjectDto"
-                  Data="Entities"
-                  ReadData="OnDataGridReadAsync"
-                  CurrentPage="CurrentPage"
-                  TotalItems="TotalCount"
-                  ShowPager="true"
-                  PageSize="PageSize">
+        Data="Entities"
+        ReadData="OnDataGridReadAsync"
+        CurrentPage="CurrentPage"
+        TotalItems="TotalCount"
+        ShowPager="true"
+        PageSize="PageSize">
             <DataGridColumns>
                 <DataGridEntityActionsColumn TItem="ProjectDto" @ref="@EntityActionsColumn">
                     <DisplayTemplate>
                         <EntityActions TItem="ProjectDto" EntityActionsColumn="@EntityActionsColumn">
                             <EntityAction TItem="ProjectDto"
-                                          Text="@L["Edit"]"
-                                          Clicked="() => OpenEditModalAsync(context)" />
+                            Text="@L["Edit"]"
+                            Clicked="() => OpenEditModalAsync(context)" />
                             <EntityAction TItem="ProjectDto"
-                                          Text="@L["Delete"]"
-                                          Clicked="() => DeleteEntityAsync(context)"
-                                          ConfirmationMessage="()=>GetDeleteConfirmationMessage(context)" />
+                            Text="@L["Delete"]"
+                            Clicked="() => DeleteEntityAsync(context)"
+                            ConfirmationMessage="()=>GetDeleteConfirmationMessage(context)" />
                         </EntityActions>
                     </DisplayTemplate>
                 </DataGridEntityActionsColumn>
 
                 <!-- Use Id property as the PK -->
                 <DataGridColumn TItem="ProjectDto"
-                                Field="@nameof(ProjectDto.Id)"
-                                Caption="@L["ProjectID"]" />
+                Field="@nameof(ProjectDto.Id)"
+                Caption="@L["ProjectCode"]" />
 
                 <DataGridColumn TItem="ProjectDto"
-                                Field="@nameof(ProjectDto.ProjectName)"
-                                Caption="@L["ProjectName"]" />
+                Field="@nameof(ProjectDto.ProjectName)"
+                Caption="@L["ProjectName"]" />
 
                 <DataGridColumn TItem="ProjectDto"
-                                Field="@nameof(ProjectDto.ProjectDescription)"
-                                Caption="@L["ProjectDescription"]" />
+                Field="@nameof(ProjectDto.ProjectDescription)"
+                Caption="@L["ProjectDescription"]" />
             </DataGridColumns>
         </DataGrid>
     </CardBody>
@@ -69,6 +70,12 @@
             </ModalHeader>
             <ModalBody>
                 <Validations @ref="@CreateValidationsRef" Model="@NewEntity" ValidateOnLoad="false">
+
+                    <Field>
+                        <FieldLabel>@L["ProjectCode"]</FieldLabel>
+                        <TextEdit @bind-Text="@NewEntity.ProjectCode" Rows="4" />
+                    </Field>
+
                     <Validation MessageLocalizer="@LH.Localize">
                         <Field>
                             <FieldLabel>@L["ProjectName"]</FieldLabel>
@@ -81,16 +88,16 @@
                     <Field>
                         <FieldLabel>@L["ProjectDescription"]</FieldLabel>
                         <TextEdit @bind-Text="@NewEntity.ProjectDescription" Rows="4" />
-                    </Field>
+                    </Field>              
 
                 </Validations>
             </ModalBody>
             <ModalFooter>
                 <Button Color="Color.Secondary" Clicked="CloseCreateModalAsync">@L["Cancel"]</Button>
                 <Button Color="Color.Primary"
-                        Type="@ButtonType.Submit"
-                        PreventDefaultOnSubmit="true"
-                        Clicked="CreateEntityAsync">@L["Save"]</Button>
+                Type="@ButtonType.Submit"
+                PreventDefaultOnSubmit="true"
+                Clicked="CreateEntityAsync">@L["Save"]</Button>
             </ModalFooter>
         </Form>
     </ModalContent>
@@ -126,10 +133,12 @@
             <ModalFooter>
                 <Button Color="Color.Secondary" Clicked="CloseEditModalAsync">@L["Cancel"]</Button>
                 <Button Color="Color.Primary"
-                        Type="@ButtonType.Submit"
-                        PreventDefaultOnSubmit="true"
-                        Clicked="UpdateEntityAsync">@L["Save"]</Button>
+                Type="@ButtonType.Submit"
+                PreventDefaultOnSubmit="true"
+                Clicked="UpdateEntityAsync">@L["Save"]</Button>
             </ModalFooter>
         </Form>
     </ModalContent>
 </Modal>
+
+

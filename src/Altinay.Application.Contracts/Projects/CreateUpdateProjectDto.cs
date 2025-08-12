@@ -12,10 +12,11 @@ namespace Altinay.Projects
     {
         [Required]
         public string ProjectName { get; set; }
+
         [Required]
-        public Guid ProjectID { get; set; }
-       
-        public string ProjectDescription { get; set; }
+        public String ProjectCode { get; set; }
+
+        public string? ProjectDescription { get; set; }
         
     }
 }

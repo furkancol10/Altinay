@@ -195,6 +195,7 @@ public class AltinayDbContext :
             b.ToTable(AltinayConsts.DbTablePrefix + "Project", AltinayConsts.DbSchema);
 
             b.ConfigureByConvention(); // configure Id and auditing properties automatically
+            b.Property(x => x.ProjectCode);
 
             b.Property(x => x.ProjectName)
                 .IsRequired()

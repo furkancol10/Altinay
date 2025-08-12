@@ -17,6 +17,8 @@ namespace Altinay.Projects
         public ProjectAppService(IRepository<Project, Guid> repository)
             : base(repository)
         {
+
         }
+
     }
 }
