@@ -206,7 +206,3 @@ public class AltinayDbContext :
 
     }
 }
-/*
-b.Property(x => x.ProjectName).IsRequired().HasMaxLength(128);
-b.Property(x => x.ProjectID).IsRequired();
-b.Property(x => x.ProjectDescription).IsRequired(); */
