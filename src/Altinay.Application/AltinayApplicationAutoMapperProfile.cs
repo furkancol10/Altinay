@@ -33,5 +33,8 @@ public class AltinayApplicationAutoMapperProfile : Profile
 
         CreateMap<Project, ProjectDto>();
         CreateMap<CreateUpdateProjectDto, Project>();
+        CreateMap<Project, CreateUpdateProjectDto>();
+        CreateMap<ProjectDto, CreateUpdateProjectDto>();
+        
     }
 }

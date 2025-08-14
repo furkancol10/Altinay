@@ -76,6 +76,11 @@
         "ProjectDescription": "Project Description",
         "ProjectName": "Project Name",
         "ProjectCode": "Project Code",
-         "NewProject": "New Project"
+        "NewProject": "New Project",
+        "Permissions": "Project Management",
+        "Permissions:Projects.Create": "Create Project",
+        "Permissions:Projects.Edit": "Edit Project",
+        "Permissions:Projects.Delete": "Delete Project"
+
     }
 }
