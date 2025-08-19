@@ -6,6 +6,9 @@ using Altinay.Personel.Managers;
 using AutoMapper;
 using Altinay.Meeting.CreateUpdateDtos;
 using Altinay.Projects;
+using Altinay.Files;
+using Altinay.ProjectGroups;
+
 
 namespace Altinay;
 
@@ -35,6 +38,21 @@ public class AltinayApplicationAutoMapperProfile : Profile
         CreateMap<CreateUpdateProjectDto, Project>();
         CreateMap<Project, CreateUpdateProjectDto>();
         CreateMap<ProjectDto, CreateUpdateProjectDto>();
-        
+      
+        CreateMap<CreateUpdateProjectDto, ProjectDto>();
+        CreateMap<File, FileDto>();
+        CreateMap<CreateUpdateFileDto, File>();
+        CreateMap<File, CreateUpdateFileDto>();
+        CreateMap<File, FileDto>();
+
+        CreateMap<ProjectGroup, ProjectGroupDto>();
+        CreateMap<CreateUpdateProjectGroupDto, ProjectGroup>();
+        CreateMap<ProjectGroup, CreateUpdateProjectGroupDto>();
+        CreateMap<ProjectGroupDto, CreateUpdateProjectGroupDto>();
+        CreateMap<CreateUpdateProjectGroupDto, ProjectGroupDto>();
+
+
+
+
     }
 }

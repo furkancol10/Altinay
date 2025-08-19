@@ -3,6 +3,8 @@ using Altinay.Personel;
 using Altinay.Personel.Departments;
 using Altinay.Personel.Managers;
 using Altinay.Projects;
+using Altinay.ProjectGroups;
+using Altinay.Files;
 using Microsoft.EntityFrameworkCore;
 using Volo.Abp.AuditLogging.EntityFrameworkCore;
 using Volo.Abp.BackgroundJobs.EntityFrameworkCore;
@@ -72,6 +74,13 @@ public class AltinayDbContext :
     //Projects
     //
     public DbSet<Project> Projects { get; set; }
+    //
+    //Files
+    //
+    public DbSet<File> Files { get; set; }
+    //
+    //Project Groups
+    public DbSet<ProjectGroup> ProjectGroups { get; set; }
 
     public AltinayDbContext(DbContextOptions<AltinayDbContext> options)
         : base(options)
@@ -204,5 +213,42 @@ public class AltinayDbContext :
             b.Property(x => x.ProjectDescription);
         });
 
+        //FILES(FileAlias,DileDesriptşon IsActive)
+        builder.Entity<File>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "File", AltinayConsts.DbSchema);
+            b.ConfigureByConvention(); // configure Id and auditing properties automatically
+            b.Property(x => x.FileAlias)
+                .IsRequired()
+                .HasMaxLength(128);
+            b.Property(x => x.FileDescription)
+                .HasMaxLength(512);
+            b.Property(x => x.IsActive);
+        });
+        //PROJECT GROUPS
+        builder.Entity<ProjectGroup>(b =>
+            {
+                b.ToTable(AltinayConsts.DbTablePrefix + "ProjectGroup", AltinayConsts.DbSchema);
+                b.ConfigureByConvention(); // configure Id and auditing properties automatically
+
+                b.Property(x => x.GroupName)
+                    .IsRequired()
+                    .HasMaxLength(128);
+
+                b.Property(x => x.ProjectId)
+                    .IsRequired();
+                b.Property(x => x.FileAliasId)
+                    .IsRequired();
+
+                // Navigation properties (using foreign keys)
+                b.HasOne<Project>()
+                    .WithMany()
+                    .HasForeignKey(pg => pg.ProjectId)
+                    .IsRequired();
+                b.HasOne<File>()
+                    .WithMany()
+                    .HasForeignKey(pg => pg.FileAliasId)
+                    .IsRequired();
+            });
     }
 }

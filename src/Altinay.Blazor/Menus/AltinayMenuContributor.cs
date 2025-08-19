@@ -56,10 +56,23 @@ public class AltinayMenuContributor : IMenuContributor
             AltinayMenus.Project,
             l["Menu:Project"],
             "/project",
-            icon: "fas fa-calendar"
+            icon: "fas fa-project-diagram"
         )
-
-    );
+    ); context.Menu.AddItem(
+        new ApplicationMenuItem(
+            AltinayMenus.File,
+            l["Menu:File"],
+            "/file",
+            icon: "fas fa-file"
+        )
+    );  context.Menu.AddItem(
+        new ApplicationMenuItem(
+            AltinayMenus.ProjectGroup,
+            l["Menu:ProjectGroups"],
+            "/project-groups",
+            icon: "fas fa-users"
+        )
+    );    
 
         if (MultiTenancyConsts.IsEnabled)
         {

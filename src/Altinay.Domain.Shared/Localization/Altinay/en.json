@@ -80,7 +80,21 @@
         "Permissions": "Project Management",
         "Permissions:Projects.Create": "Create Project",
         "Permissions:Projects.Edit": "Edit Project",
-        "Permissions:Projects.Delete": "Delete Project"
+        "Permissions:Projects.Delete": "Delete Project",
+
+        "NewFile": "New File",
+        "Permissions:Files": "Files",
+        "Permissions:Files.Create": "Create File",
+        "Permissions:Files.Edit": "Edit File",
+        "Permissions:Files.Delete": "Delete File",
+        "FileAlias": "File Alias",
+        "FileDescription": "File Description",
+        "IsActive": "Is Active",
+
+        //Project groups
+        "ProjectGroup": "Project Group",
+        "ProjectGroups": "Project Groups",
+        "NewProjectGroup": "New Project Group"
 
     }
 }
