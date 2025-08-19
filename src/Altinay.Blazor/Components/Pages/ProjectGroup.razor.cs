@@ -16,9 +16,10 @@ namespace Altinay.Blazor.Components.Pages.ProjectGroups
 {
     public partial class ProjectGroup
     {
-        private IReadOnlyList<ProjectGroupDto>? ProjectGroupList { get; set; }
-        private IReadOnlyList<ProjectDto>? ProjectList { get; set; }
-        private IReadOnlyList<FileDto>? FileList { get; set; }
+        // To help prevent System.NullReferenceException, initialize the lists to empty arrays by default.
+        private IReadOnlyList<ProjectGroupDto> ProjectGroupList { get; set; } = Array.Empty<ProjectGroupDto>();
+        private IReadOnlyList<ProjectDto> ProjectList { get; set; } = Array.Empty<ProjectDto>();
+        private IReadOnlyList<FileDto> FileList { get; set; } = Array.Empty<FileDto>();
 
         private int PageSize { get; } = LimitedResultRequestDto.DefaultMaxResultCount;
         private int CurrentPage { get; set; }

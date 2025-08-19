@@ -14,7 +14,7 @@ namespace Altinay.Blazor.Components.Pages.Files;
 
 public partial class File
 {
-    private IReadOnlyList<FileDto> FileList { get; set; } = Array.Empty<FileDto>();
+    private IReadOnlyList<FileDto> FileList { get; set; } 
 
     private int PageSize { get; } = LimitedResultRequestDto.DefaultMaxResultCount;
     private int CurrentPage { get; set; }
