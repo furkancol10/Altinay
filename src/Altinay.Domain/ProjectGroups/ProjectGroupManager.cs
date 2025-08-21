@@ -28,20 +28,5 @@ namespace Altinay.ProjectGroups
             return new ProjectGroup(groupName,projectId, fileAliasId);
         }
 
-        public async Task<ProjectGroup> ChangeProjectIdAndFileAliasIdAsync(ProjectGroup projectGroup, Guid newProjectId, Guid newFileAliasId)
-        {
-            Check.NotNull(projectGroup, nameof(projectGroup));
-            Check.NotNull(newProjectId, nameof(newProjectId));
-            Check.NotNull(newFileAliasId, nameof(newFileAliasId));
-            var existingProjectGroup = await _projectGroupRepository.FindByProjectIdAndFileAliasIdAsync(
-                newProjectId, newFileAliasId);
-            if (existingProjectGroup != null && existingProjectGroup.Id != projectGroup.Id)
-            {
-                throw new Exception($"Project group with project id {newProjectId} and file alias id {newFileAliasId} already exists.");
-            }
-            var updatedProjectGroup = projectGroup.ChangeProjectIdAndFileAliasId(newProjectId, newFileAliasId);
-            updatedProjectGroup.UpdateGroupNameFromIds();
-            return updatedProjectGroup;
-        }
     }
 }

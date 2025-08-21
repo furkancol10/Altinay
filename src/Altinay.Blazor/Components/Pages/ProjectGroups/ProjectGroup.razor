@@ -1,4 +1,5 @@
 ﻿@page "/project-groups"
+@using Blazorise
 @using Altinay.ProjectGroups
 @using Altinay.Projects
 @using Altinay.Files
@@ -19,8 +20,7 @@
             <Column ColumnSize="ColumnSize.IsAuto">
                 @if (CanCreateProjectGroup)
                 {
-                    <Button Color="Color.Primary"
-                            Clicked="OpenCreateProjectGroupModal">
+                    <Button Color="Color.Primary" Clicked="OpenCreateProjectGroupModal">
                         @L["NewProjectGroup"]
                     </Button>
                 }
@@ -62,6 +62,8 @@
                         </Dropdown>
                     </DisplayTemplate>
                 </DataGridColumn>
+
+                <!-- Adjust these columns to show names if your DTO exposes them -->
                 <DataGridColumn TItem="ProjectGroupDto" Field="@nameof(ProjectGroupDto.ProjectId)" Caption="@L["Project"]" />
                 <DataGridColumn TItem="ProjectGroupDto" Field="@nameof(ProjectGroupDto.FileAliasId)" Caption="@L["FileAlias"]" />
             </DataGridColumns>
@@ -79,59 +81,53 @@
                 <CloseButton Clicked="CloseCreateProjectGroupModal" />
             </ModalHeader>
             <ModalBody>
-                <Validations @ref="@CreateValidationsRef" Model="@NewProjectGroup" ValidateOnLoad="false">
-                    <Validation MessageLocalizer="@LH.Localize">
-                        <Field>
-                            <FieldLabel>@L["Project"]</FieldLabel>
-                            <Select TValue="Guid"
-                                    @bind-Value="NewProjectGroup.ProjectId"
-                                    Class="form-control">
-                                <option value="">@L["SelectProject"]</option>
-                                @if (ProjectList != null && ProjectList.Any())
+                <Validations @ref="CreateValidationsRef" Model="@NewProjectGroup" ValidateOnLoad="false">
+                    <Field>
+                        <FieldLabel>@L["Project"]</FieldLabel>
+                        <Select TValue="Guid" @bind-Value="NewProjectGroup.ProjectId" Class="form-control">
+                            @if (ProjectList?.Any() == true)
+                            {
+                                foreach (var project in ProjectList)
                                 {
-                                    foreach (var project in ProjectList)
-                                    {
-                                        <option value="@project.Id">@project.ProjectName</option>
-                                    }
+                                    <option value="@project.Id">@project.ProjectName</option>
                                 }
-                                else
-                                {
-                                    <option disabled>@L["NoProjectsAvailable"]</option>
-                                }
+                            }
+                            else
+                            {
+                                <option disabled>@L["NoProjectsAvailable"]</option>
+                            }
+                        </Select>
+                        <ValidationMessage For="@(() => NewProjectGroup.ProjectId)" />
+                    </Field>
 
-
-                            </Select>
-                            <Feedback>
-                                <ValidationError/>
-                            </Feedback>
-                        </Field>
-                        <Field>
-                            <FieldLabel>@L["FileAlias"]</FieldLabel>
-                            <Select TValue="Guid"
-                                    @bind-Value="NewProjectGroup.FileAliasId"
-                                    Class="form-control">
-                                <option value="">@L["SelectFileAlias"]</option>
-                                @foreach (var file in FileList)
+                    <Field>
+                        <FieldLabel>@L["FileAlias"]</FieldLabel>
+                        <Select TValue="Guid" @bind-Value="NewProjectGroup.FileAliasId" Class="form-control">
+                            @if (FileList?.Any() == true)
+                            {
+                                foreach (var file in FileList)
                                 {
                                     <option value="@file.Id">@file.FileAlias</option>
                                 }
-                            </Select>
-                            <Feedback>
-                                <ValidationError/>
-                            </Feedback>
-                        </Field>
-                    </Validation>
+                            }
+                            else
+                            {
+                                <option disabled>@L["NoFilesAvailable"]</option>
+                            }
+                        </Select>
+                        <ValidationMessage For="@(() => NewProjectGroup.FileAliasId)" />
+                    </Field>
                 </Validations>
             </ModalBody>
             <ModalFooter>
-                <Button Color="Color.Secondary"
-                        Clicked="CloseCreateProjectGroupModal">
+                <Button Color="Color.Secondary" Clicked="CloseCreateProjectGroupModal">
                     @L["Cancel"]
                 </Button>
                 <Button Color="Color.Primary"
                         Type="@ButtonType.Submit"
                         PreventDefaultOnSubmit="true"
-                        Clicked="CreateProjectGroupAsync">
+                        Clicked="CreateProjectGroupAsync"
+                        Disabled="@(ProjectList is null || ProjectList.Count == 0 || FileList is null || FileList.Count == 0)">
                     @L["Save"]
                 </Button>
             </ModalFooter>
@@ -149,54 +145,53 @@
                 <CloseButton Clicked="CloseEditProjectGroupModal" />
             </ModalHeader>
             <ModalBody>
-                <Validations @ref="@EditValidationsRef" Model="@EditingProjectGroup" ValidateOnLoad="false">
-                    <Validation MessageLocalizer="@LH.Localize">
-                        <Field>
-                            <FieldLabel>@L["Project"]</FieldLabel>
-                            <Select TValue="Guid"
-                                    @bind-Value="EditingProjectGroup.ProjectId"
-                                    Class="form-control">
-                                <option value="">@L["SelectProject"]</option>
-                                @if (ProjectList != null)
+                <Validations @ref="EditValidationsRef" Model="@EditingProjectGroup" ValidateOnLoad="false">
+                    <Field>
+                        <FieldLabel>@L["Project"]</FieldLabel>
+                        <Select TValue="Guid" @bind-Value="EditingProjectGroup.ProjectId" Class="form-control">
+                            @if (ProjectList?.Any() == true)
+                            {
+                                foreach (var project in ProjectList)
                                 {
-                                    @foreach (var project in ProjectList)
-                                    {
-                                        <option value="@project.Id">@project.ProjectName</option>
-                                    }
+                                    <option value="@project.Id">@project.ProjectName</option>
                                 }
+                            }
+                            else
+                            {
+                                <option disabled>@L["NoProjectsAvailable"]</option>
+                            }
+                        </Select>
+                        <ValidationMessage For="@(() => EditingProjectGroup.ProjectId)" />
+                    </Field>
 
-                            </Select>
-                            <Feedback>
-                                <ValidationError/>
-                            </Feedback>
-                        </Field>
-                        <Field>
-                            <FieldLabel>@L["FileAlias"]</FieldLabel>
-                            <Select TValue="Guid"
-                                    @bind-Value="EditingProjectGroup.FileAliasId"
-                                    Class="form-control">
-                                <option value="">@L["SelectFileAlias"]</option>
-                                @foreach (var file in FileList)
+                    <Field>
+                        <FieldLabel>@L["FileAlias"]</FieldLabel>
+                        <Select TValue="Guid" @bind-Value="EditingProjectGroup.FileAliasId" Class="form-control">
+                            @if (FileList?.Any() == true)
+                            {
+                                foreach (var file in FileList)
                                 {
                                     <option value="@file.Id">@file.FileAlias</option>
                                 }
-                            </Select>
-                            <Feedback>
-                                <ValidationError/>
-                            </Feedback>
-                        </Field>
-                    </Validation>
+                            }
+                            else
+                            {
+                                <option disabled>@L["NoFilesAvailable"]</option>
+                            }
+                        </Select>
+                        <ValidationMessage For="@(() => EditingProjectGroup.FileAliasId)" />
+                    </Field>
                 </Validations>
             </ModalBody>
             <ModalFooter>
-                <Button Color="Color.Secondary"
-                        Clicked="CloseEditProjectGroupModal">
+                <Button Color="Color.Secondary" Clicked="CloseEditProjectGroupModal">
                     @L["Cancel"]
                 </Button>
                 <Button Color="Color.Primary"
                         Type="@ButtonType.Submit"
                         PreventDefaultOnSubmit="true"
-                        Clicked="UpdateProjectGroupAsync">
+                        Clicked="UpdateProjectGroupAsync"
+                        Disabled="@(ProjectList is null || ProjectList.Count == 0 || FileList is null || FileList.Count == 0)">
                     @L["Save"]
                 </Button>
             </ModalFooter>

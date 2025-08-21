@@ -34,7 +34,7 @@ namespace Altinay.ProjectGroups
             GroupName = GroupName ?? throw new ArgumentNullException(nameof(GroupName), "GroupName cannot be null.");
         }
 
-        internal ProjectGroup ChangeProjectIdAndFileAliasId(Guid newProjectId, Guid newFileAliasId)
+        internal ProjectGroup ChangeProjectGroup(string groupName,Guid newProjectId, Guid newFileAliasId)
         {
             if (newProjectId == Guid.Empty)
             {
@@ -44,6 +44,11 @@ namespace Altinay.ProjectGroups
             {
                 throw new ArgumentException("FileAliasId cannot be empty.", nameof(newFileAliasId));
             }
+            if (string.IsNullOrWhiteSpace(groupName))
+            {
+                throw new ArgumentException("GroupName cannot be null or empty.", nameof(groupName));
+            }
+            GroupName = groupName;
             ProjectId = newProjectId;
             FileAliasId = newFileAliasId;
             return this;
