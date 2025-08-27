@@ -48,14 +48,7 @@ namespace Altinay
             var fileAliasId2 = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
             // Seed ProjectGroups
-            if (await _projectGroupRepository.GetCountAsync() == 0 && prj1 != null && prj2 != null)
-            {
-                var group1 = await _projectGroupManager.CreateAsync("Group One", prj1.Id, fileAliasId1);
-                await _projectGroupRepository.InsertAsync(group1, autoSave: true);
-
-                var group2 = await _projectGroupManager.CreateAsync("Group Two", prj2.Id, fileAliasId2);
-                await _projectGroupRepository.InsertAsync(group2, autoSave: true);
-            }
+          
         }
     }
 }

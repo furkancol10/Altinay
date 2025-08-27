@@ -8,7 +8,7 @@ public class AltinayPermissionDefinitionProvider : PermissionDefinitionProvider
 {
     public override void Define(IPermissionDefinitionContext context)
     {
-        var myGroup = context.AddGroup(AltinayPermissions.GroupName,L("Permission:BookStore"));
+        var myGroup = context.AddGroup(AltinayPermissions.GroupName,L("Permission:Altinay"));
         //Define your own permissions here. Example:
         //myGroup.AddPermission(AltinayPermissions.MyPermission1, L("Permission:MyPermission1"));
         var projectsPermission = myGroup.AddPermission(AltinayPermissions.Projects.Default, L("Permission:Projects"));

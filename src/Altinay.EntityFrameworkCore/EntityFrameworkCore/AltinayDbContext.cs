@@ -92,6 +92,11 @@ public class AltinayDbContext :
     {
         base.OnModelCreating(builder);
 
+        builder.Entity<ProjectGroup>(entity =>
+        {
+            entity.Ignore(e => e.ExtraProperties);
+        });
+
         /* Include modules to your migration db context */
 
         builder.ConfigurePermissionManagement();
@@ -239,16 +244,8 @@ public class AltinayDbContext :
                     .IsRequired();
                 b.Property(x => x.FileAliasId)
                     .IsRequired();
-
-                // Navigation properties (using foreign keys)
-                b.HasOne<Project>()
-                    .WithMany()
-                    .HasForeignKey(pg => pg.ProjectId)
-                    .IsRequired();
-                b.HasOne<File>()
-                    .WithMany()
-                    .HasForeignKey(pg => pg.FileAliasId)
-                    .IsRequired();
+                b.Property(x => x.GroupName)
+                    .HasMaxLength(128);
             });
     }
 }

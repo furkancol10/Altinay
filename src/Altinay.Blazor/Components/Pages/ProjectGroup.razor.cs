@@ -12,20 +12,22 @@ using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.ObjectMapping;
 using Autofac.Core;
+using Microsoft.AspNetCore.Components;
 
 namespace Altinay.Blazor.Components.Pages.ProjectGroups
 {
-    public partial class ProjectGroup: IDisposable
+    public partial class ProjectGroup : IDisposable
     {
-        private bool _disposed;
-        private IReadOnlyList<ProjectGroupDto> ProjectGroupList { get; set; } = Array.Empty<ProjectGroupDto>();
-        private IReadOnlyList<ProjectDto> ProjectList { get; set; } = Array.Empty<ProjectDto>();
-        private IReadOnlyList<FileDto> FileList { get; set; } = Array.Empty<FileDto>();
+        //private bool _disposed;
+        private IReadOnlyList<ProjectGroupDto> ProjectGroupList { get; set; }
+        private IReadOnlyList<ProjectDto> ProjectList { get; set; }
+        private IReadOnlyList<FileDto> FileList { get; set; }
 
         private int PageSize { get; } = LimitedResultRequestDto.DefaultMaxResultCount;
         private int CurrentPage { get; set; }
-        private string? CurrentSorting { get; set; }
+        private string CurrentSorting { get; set; }
         private int TotalCount { get; set; }
+        private void OnFileAliasChanged(Guid value) => NewProjectGroup.FileAliasId = value;
 
         private bool CanCreateProjectGroup { get; set; }
         private bool CanEditProjectGroup { get; set; }
@@ -36,20 +38,31 @@ namespace Altinay.Blazor.Components.Pages.ProjectGroups
         private CreateUpdateProjectGroupDto EditingProjectGroup { get; set; } = new();
 
         // For multi-select create (choose one or more aliases)
-        private List<Guid> SelectedFileAliasIds { get; set; } = new();
 
-        private Modal? CreateProjectGroupModal { get; set; }
-        private Modal? EditProjectGroupModal { get; set; }
+        private Modal CreateProjectGroupModal { get; set; }
+        private Modal EditProjectGroupModal { get; set; }
 
-        private Validations? CreateValidationsRef;
-        private Validations? EditValidationsRef;
+        private Validations CreateValidationsRef;
+        private Validations EditValidationsRef;
 
-        public void Dispose()
+
+        // In ProjectGroup.razor.cs
+
+        private void OnFileAliasCheckboxChanged(ChangeEventArgs e, Guid fileId)
         {
-            _disposed = true;
+            var isChecked = e.Value == null ? false : (bool)e.Value == true;
+            // For Blazor, e.Value is usually "on" for checked, null for unchecked
+            if ((isChecked == true) && (NewProjectGroup.FileAliasIds.Contains(fileId) == false))
+            {
+                NewProjectGroup.FileAliasIds.Add(fileId);
+            }
+            else if ((isChecked == false) && (NewProjectGroup.FileAliasIds.Contains(fileId)))
+            {
+                NewProjectGroup.FileAliasIds.Remove(fileId);
+            }
         }
 
-        private async Task OnInitializedAsync()
+        protected override async Task OnInitializedAsync()
         {
             await SetPermissionsAsync();
 
@@ -59,6 +72,8 @@ namespace Altinay.Blazor.Components.Pages.ProjectGroups
                 LoadFilesAsync(),
                 GetProjectGroupsAsync()
             );
+
+            await base.OnInitializedAsync();
         }
 
 
@@ -91,7 +106,7 @@ namespace Altinay.Blazor.Components.Pages.ProjectGroups
                     Sorting = CurrentSorting
                 }
             );
-            if (_disposed) return; // Prevent state update after disposal
+            //if (_disposed) return; // Prevent state update after disposal
 
             ProjectGroupList = result.Items;
             TotalCount = (int)result.TotalCount;
@@ -108,13 +123,13 @@ namespace Altinay.Blazor.Components.Pages.ProjectGroups
             CurrentPage = e.Page - 1;
 
             await GetProjectGroupsAsync();
-            if (!_disposed)
-                await InvokeAsync(StateHasChanged);
+            //if (!_disposed)
+            await InvokeAsync(StateHasChanged);
         }
 
         private void OpenCreateProjectGroupModal()
         {
-            CreateValidationsRef?.ClearAll();
+            CreateValidationsRef.ClearAll();
             NewProjectGroup = new CreateUpdateProjectGroupDto();
 
             // Preselect valid IDs to avoid null/empty Guid issues
@@ -124,20 +139,20 @@ namespace Altinay.Blazor.Components.Pages.ProjectGroups
             if (FileList?.Any() == true)
                 NewProjectGroup.FileAliasId = FileList[0].Id;
 
-            CreateProjectGroupModal?.Show();
+            CreateProjectGroupModal.Show();
         }
 
         private void CloseCreateProjectGroupModal()
         {
-            CreateProjectGroupModal?.Hide();
+            CreateProjectGroupModal.Hide();
         }
 
         private void OpenEditProjectGroupModal(ProjectGroupDto projectGroup)
         {
-            EditValidationsRef?.ClearAll();
+            EditValidationsRef.ClearAll();
             EditingProjectGroupId = projectGroup.Id;
             EditingProjectGroup = ObjectMapper.Map<ProjectGroupDto, CreateUpdateProjectGroupDto>(projectGroup);
-            EditProjectGroupModal?.Show();
+            EditProjectGroupModal.Show();
         }
 
         private async Task DeleteProjectGroupAsync(ProjectGroupDto projectGroup)
@@ -161,19 +176,19 @@ namespace Altinay.Blazor.Components.Pages.ProjectGroups
 
         private void CloseEditProjectGroupModal()
         {
-            EditProjectGroupModal?.Hide();
+            EditProjectGroupModal.Hide();
         }
 
         private async Task CreateProjectGroupAsync()
         {
             try
             {
-                if (CreateValidationsRef != null && await CreateValidationsRef.ValidateAll())
+                if (await CreateValidationsRef.ValidateAll())
                 {
                     // If multi-select is used, create one group per selected alias
-                    if (SelectedFileAliasIds.Count > 0)
+                    if (NewProjectGroup.FileAliasIds.Count > 0)
                     {
-                        foreach (var aliasId in SelectedFileAliasIds.Distinct())
+                        foreach (var aliasId in NewProjectGroup.FileAliasIds.Distinct())
                         {
                             var dto = new CreateUpdateProjectGroupDto
                             {
@@ -185,7 +200,7 @@ namespace Altinay.Blazor.Components.Pages.ProjectGroups
                     }
                     else
                     {
-                        await ProjectGroupAppService.CreateAsync(NewProjectGroup);
+
                     }
 
                     await GetProjectGroupsAsync();
@@ -199,11 +214,6 @@ namespace Altinay.Blazor.Components.Pages.ProjectGroups
             }
         }
 
-        private Task OnSelectedFileAliasesChanged(IReadOnlyList<Guid> values)
-        {
-            SelectedFileAliasIds = values?.ToList() ?? new List<Guid>();
-            return Task.CompletedTask;
-        }
         private async Task UpdateProjectGroupAsync()
         {
             try

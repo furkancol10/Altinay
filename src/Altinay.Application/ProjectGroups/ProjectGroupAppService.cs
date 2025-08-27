@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Altinay.Files;
 using Altinay.Permissions;
+using Altinay.Projects;
 using Microsoft.AspNetCore.Authorization;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
@@ -15,15 +17,21 @@ namespace Altinay.ProjectGroups
     {
         private readonly IProjectGroupRepository _projectGroupRepository;
         private readonly ProjectGroupManager _projectGroupManager;
+        private readonly IProjectRepository _projectRepository;
+        private readonly IFileRepository _fileRepository;
+
 
         public ProjectGroupAppService(
-            IProjectGroupRepository projectGroupRepository,
-            ProjectGroupManager projectGroupManager)
+         IProjectGroupRepository projectGroupRepository,
+         ProjectGroupManager projectGroupManager,
+         IProjectRepository projectRepository,
+         IFileRepository fileRepository)
         {
             _projectGroupRepository = projectGroupRepository;
             _projectGroupManager = projectGroupManager;
+            _projectRepository = projectRepository;
+            _fileRepository = fileRepository;
         }
-
         public async Task<ProjectGroupDto> GetAsync(Guid id)
         {
             var projectGroup = await _projectGroupRepository.GetAsync(id);
@@ -59,14 +67,10 @@ namespace Altinay.ProjectGroups
 
         public async Task<ProjectGroupDto> CreateAsync(CreateUpdateProjectGroupDto input)
         {
-            if (input.ProjectId == Guid.Empty || input.FileAliasId == Guid.Empty)
-                throw new BusinessException("ProjectGroup:InvalidInput")
-                    .WithData("Details", "ProjectId and FileAliasId are required.");
+            var projectGroup = await _projectGroupManager.CreateAsync(input.ProjectId, input.FileAliasId);
 
-            var projectGroup = await _projectGroupManager.CreateAsync(
-                input.GroupName,
-                input.ProjectId,
-                input.FileAliasId);
+            // Set GroupName using actual ProjectCode and FileAlias
+            await projectGroup.SetGroupNameAsync(_projectRepository, _fileRepository);
 
             await _projectGroupRepository.InsertAsync(projectGroup);
             return ObjectMapper.Map<ProjectGroup, ProjectGroupDto>(projectGroup);
@@ -75,21 +79,16 @@ namespace Altinay.ProjectGroups
         public async Task<ProjectGroupDto> UpdateAsync(Guid id, CreateUpdateProjectGroupDto input)
         {
             var projectGroup = await _projectGroupRepository.GetAsync(id);
+            projectGroup.ChangeProjectGroup(input.ProjectId, input.FileAliasId);
 
-            if (input.ProjectId == Guid.Empty || input.FileAliasId == Guid.Empty)
-                throw new BusinessException("ProjectGroup:InvalidInput")
-                    .WithData("Details", "ProjectId and FileAliasId are required.");
-
-            projectGroup.ProjectId = input.ProjectId;
-                
-            projectGroup.FileAliasId= input.FileAliasId;
-            projectGroup.GroupName = input.GroupName;
-            if (!string.IsNullOrWhiteSpace(input.GroupName))
-                projectGroup.GroupName = input.GroupName!.Trim();
+            // Update GroupName using actual ProjectCode and FileAlias
+            await projectGroup.SetGroupNameAsync(_projectRepository, _fileRepository);
 
             await _projectGroupRepository.UpdateAsync(projectGroup);
             return ObjectMapper.Map<ProjectGroup, ProjectGroupDto>(projectGroup);
         }
+
+
 
         public async Task DeleteAsync(Guid id)
         {

@@ -35,9 +35,9 @@
                   ShowPager="true"
                   PageSize="PageSize">
             <DataGridColumns>
+                <!-- Actions column - no Field binding -->
                 <DataGridColumn Width="150px"
                                 TItem="ProjectGroupDto"
-                                Field="@nameof(ProjectGroupDto.Id)"
                                 Sortable="false"
                                 Caption="@L["Actions"]">
                     <DisplayTemplate>
@@ -63,11 +63,13 @@
                     </DisplayTemplate>
                 </DataGridColumn>
 
-                <!-- Adjust these columns to show names if your DTO exposes them -->
-                <DataGridColumn TItem="ProjectGroupDto" Field="@nameof(ProjectGroupDto.ProjectId)" Caption="@L["Project"]" />
-                <DataGridColumn TItem="ProjectGroupDto" Field="@nameof(ProjectGroupDto.FileAliasId)" Caption="@L["FileAlias"]" />
+                <!-- Data columns -->
+                <DataGridColumn TItem="ProjectGroupDto" Field="@nameof(ProjectGroupDto.GroupName)" Caption="@L["GroupName"]" />
+                <DataGridColumn TItem="ProjectGroupDto" Field="@nameof(ProjectGroupDto.ProjectCode)" Caption="@L["Project"]" />
+                <DataGridColumn TItem="ProjectGroupDto" Field="@nameof(ProjectGroupDto.FileAlias)" Caption="@L["FileAlias"]" />
             </DataGridColumns>
         </DataGrid>
+
     </CardBody>
 </Card>
 
@@ -89,7 +91,7 @@
                             {
                                 foreach (var project in ProjectList)
                                 {
-                                    <option value="@project.Id">@project.ProjectName</option>
+                                    <option value="@project.Id">@project.ProjectCode</option>
                                 }
                             }
                             else
@@ -100,24 +102,40 @@
                         <ValidationMessage For="@(() => NewProjectGroup.ProjectId)" />
                     </Field>
 
-                    <Field>
-                        <FieldLabel>@L["FileAlias"]</FieldLabel>
-                        <Select TValue="Guid" @bind-Value="NewProjectGroup.FileAliasId" Class="form-control">
-                            @if (FileList?.Any() == true)
-                            {
-                                foreach (var file in FileList)
+                
+               
+                        <Field>
+                            <FieldLabel>@L["FileAlias"]</FieldLabel>
+                            <div>
+                                @if (FileList?.Any() == true)
                                 {
-                                    <option value="@file.Id">@file.FileAlias</option>
+                                    foreach (var file in FileList)
+                                    {
+                                        <div class="form-check">
+                                            <input class="form-check-input"
+                                                   type="checkbox"
+                                                   id="fileAlias_@file.Id"
+                                                   value="@file.Id"
+                                                   checked="@(NewProjectGroup.FileAliasIds?.Contains(file.Id) ?? false)"
+                                                   @onchange="(e => OnFileAliasCheckboxChanged(e, file.Id))" />
+                                            <label class="form-check-label" for="fileAlias_@file.Id">
+                                                @file.FileAlias
+                                            </label>
+                                        </div>
+                                    }
                                 }
-                            }
-                            else
-                            {
-                                <option disabled>@L["NoFilesAvailable"]</option>
-                            }
-                        </Select>
-                        <ValidationMessage For="@(() => NewProjectGroup.FileAliasId)" />
-                    </Field>
+                                else
+                                {
+                                    <div>
+                                        <span>@L["NoFilesAvailable"]</span>
+                                    </div>
+                                }
+                            </div>
+                            <ValidationMessage For="@(() => NewProjectGroup.FileAliasIds)" />
+                        </Field>
+                    
                 </Validations>
+
             </ModalBody>
             <ModalFooter>
                 <Button Color="Color.Secondary" Clicked="CloseCreateProjectGroupModal">
@@ -126,8 +144,7 @@
                 <Button Color="Color.Primary"
                         Type="@ButtonType.Submit"
                         PreventDefaultOnSubmit="true"
-                        Clicked="CreateProjectGroupAsync"
-                        Disabled="@(ProjectList is null || ProjectList.Count == 0 || FileList is null || FileList.Count == 0)">
+                        Clicked="CreateProjectGroupAsync">
                     @L["Save"]
                 </Button>
             </ModalFooter>
@@ -153,7 +170,7 @@
                             {
                                 foreach (var project in ProjectList)
                                 {
-                                    <option value="@project.Id">@project.ProjectName</option>
+                                    <option value="@project.Id">@project.ProjectCode</option>
                                 }
                             }
                             else
