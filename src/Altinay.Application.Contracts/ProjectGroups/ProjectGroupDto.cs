@@ -1,6 +1,8 @@
 ﻿
 using System;
+using System.Collections.Generic;
 using Volo.Abp.Application.Dtos;
+using Volo.Abp.Identity;
 
 namespace Altinay.ProjectGroups
 {
@@ -8,12 +10,9 @@ namespace Altinay.ProjectGroups
     {
         public Guid Id { get; set; }
         public string GroupName { get; set; }
-
         public Guid ProjectId { get; set; }
-        public string ProjectCode { get; set; } // <-- add this
-
         public Guid FileAliasId { get; set; }
-        public string FileAlias { get; set; } // <-- add this
+        public List<IdentityUserDto> People { get; set; } = new();
 
     }
 }

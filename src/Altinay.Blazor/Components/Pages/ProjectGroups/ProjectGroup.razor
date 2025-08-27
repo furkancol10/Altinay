@@ -65,8 +65,22 @@
 
                 <!-- Data columns -->
                 <DataGridColumn TItem="ProjectGroupDto" Field="@nameof(ProjectGroupDto.GroupName)" Caption="@L["GroupName"]" />
-                <DataGridColumn TItem="ProjectGroupDto" Field="@nameof(ProjectGroupDto.ProjectCode)" Caption="@L["Project"]" />
-                <DataGridColumn TItem="ProjectGroupDto" Field="@nameof(ProjectGroupDto.FileAlias)" Caption="@L["FileAlias"]" />
+                <DataGridColumn TItem="ProjectGroupDto" Caption="@L["Project"]">
+                    <DisplayTemplate>
+                        @{
+                            var project = ProjectList?.FirstOrDefault(p => p.Id == context.ProjectId);
+                        }
+                        @project?.ProjectCode
+                    </DisplayTemplate>
+                </DataGridColumn>
+                <DataGridColumn TItem="ProjectGroupDto" Caption="@L["FileAlias"]">
+                    <DisplayTemplate>
+                        @{
+                            var file = FileList?.FirstOrDefault(p => p.Id == context.FileAliasId);
+                        }
+                        @file?.FileAlias
+                    </DisplayTemplate>
+                </DataGridColumn>
             </DataGridColumns>
         </DataGrid>
 
@@ -86,17 +100,18 @@
                 <Validations @ref="CreateValidationsRef" Model="@NewProjectGroup" ValidateOnLoad="false">
                     <Field>
                         <FieldLabel>@L["Project"]</FieldLabel>
-                        <Select TValue="Guid" @bind-Value="NewProjectGroup.ProjectId" Class="form-control">
+                        <Select TValue="Guid" @bind-SelectedValue="NewProjectGroup.ProjectId" Class="form-control">
+                            <SelectItem>@L["None"]</SelectItem>
                             @if (ProjectList?.Any() == true)
                             {
                                 foreach (var project in ProjectList)
                                 {
-                                    <option value="@project.Id">@project.ProjectCode</option>
+                                    <SelectItem Value="@project.Id">@project.ProjectCode</SelectItem>
                                 }
                             }
                             else
                             {
-                                <option disabled>@L["NoProjectsAvailable"]</option>
+                                <SelectItem disabled>@L["NoProjectsAvailable"]</SelectItem>
                             }
                         </Select>
                         <ValidationMessage For="@(() => NewProjectGroup.ProjectId)" />
@@ -116,7 +131,7 @@
                                                    type="checkbox"
                                                    id="fileAlias_@file.Id"
                                                    value="@file.Id"
-                                                   checked="@(NewProjectGroup.FileAliasIds?.Contains(file.Id) ?? false)"
+                                                   checked="@(NewProjectGroup.FileAliasIds?.Contains(file.Id) )"
                                                    @onchange="(e => OnFileAliasCheckboxChanged(e, file.Id))" />
                                             <label class="form-check-label" for="fileAlias_@file.Id">
                                                 @file.FileAlias

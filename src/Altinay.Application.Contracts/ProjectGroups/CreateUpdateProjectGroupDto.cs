@@ -15,5 +15,6 @@ namespace Altinay.ProjectGroups
         // Add this for multiple selection (checkboxes)
         [Required(ErrorMessage = "At least one file alias is required")]
         public List<Guid> FileAliasIds { get; set; } = new();
+
     }
 }

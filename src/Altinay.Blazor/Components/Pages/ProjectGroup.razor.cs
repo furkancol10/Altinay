@@ -61,8 +61,8 @@ namespace Altinay.Blazor.Components.Pages.ProjectGroups
                 NewProjectGroup.FileAliasIds.Remove(fileId);
             }
         }
-
-        protected override async Task OnInitializedAsync()
+  
+       protected override async Task OnInitializedAsync()
         {
             await SetPermissionsAsync();
 
@@ -133,8 +133,8 @@ namespace Altinay.Blazor.Components.Pages.ProjectGroups
             NewProjectGroup = new CreateUpdateProjectGroupDto();
 
             // Preselect valid IDs to avoid null/empty Guid issues
-            if (ProjectList?.Any() == true)
-                NewProjectGroup.ProjectId = ProjectList[0].Id;
+            //if (ProjectList?.Any() == true)
+                //NewProjectGroup.ProjectId = ProjectList[0].Id;
 
             if (FileList?.Any() == true)
                 NewProjectGroup.FileAliasId = FileList[0].Id;
@@ -185,22 +185,48 @@ namespace Altinay.Blazor.Components.Pages.ProjectGroups
             {
                 if (await CreateValidationsRef.ValidateAll())
                 {
-                    // If multi-select is used, create one group per selected alias
-                    if (NewProjectGroup.FileAliasIds.Count > 0)
-                    {
-                        foreach (var aliasId in NewProjectGroup.FileAliasIds.Distinct())
-                        {
-                            var dto = new CreateUpdateProjectGroupDto
-                            {
-                                ProjectId = NewProjectGroup.ProjectId,
-                                FileAliasId = aliasId
-                            };
-                            await ProjectGroupAppService.CreateAsync(dto);
-                        }
-                    }
-                    else
-                    {
+                    // Get all existing project group combinations for the selected project and alias
+                    var existingGroups = ProjectGroupList
+                        .Select(pg => new { pg.ProjectId, pg.FileAliasId })
+                        .ToHashSet();
 
+                    // Find which selected (project, alias) pairs already exist
+                    var duplicatePairs = NewProjectGroup.FileAliasIds
+                        .Where(aliasId => existingGroups.Contains(new { ProjectId = NewProjectGroup.ProjectId, FileAliasId = aliasId }))
+                        .ToList();
+
+                   
+                       //message:youhave to choose a project
+                    if (NewProjectGroup.ProjectId == Guid.Empty)
+                    {
+                        await Message.Error("You have to choose a project before creating a project group.");
+                        return;
+                    }
+
+
+                    
+
+                    if (duplicatePairs.Any())
+                    {
+                        var duplicateNames = FileList
+                            .Where(f => duplicatePairs.Contains(f.Id))
+                            .Select(f => f.FileAlias)
+                            .ToList();
+
+                        var message = $"You cannot create an existing group for: {string.Join(", ", duplicateNames)}. Please rechoose.";
+                        await Message.Error(message);
+                        return;
+                    }
+
+                    // Create new groups for non-duplicate (project, alias) pairs
+                    foreach (var aliasId in NewProjectGroup.FileAliasIds.Distinct())
+                    {
+                        var dto = new CreateUpdateProjectGroupDto
+                        {
+                            ProjectId = NewProjectGroup.ProjectId,
+                            FileAliasId = aliasId
+                        };
+                        await ProjectGroupAppService.CreateAsync(dto);
                     }
 
                     await GetProjectGroupsAsync();
