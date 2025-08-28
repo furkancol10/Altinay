@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Altinay.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Volo.Abp.EntityFrameworkCore;
@@ -13,9 +14,11 @@ using Volo.Abp.EntityFrameworkCore;
 namespace Altinay.Migrations
 {
     [DbContext(typeof(AltinayDbContext))]
-    partial class AltinayDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250828111828_Added_ProjectGroupUsers")]
+    partial class Added_ProjectGroupUsers
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -605,18 +608,20 @@ namespace Altinay.Migrations
 
             modelBuilder.Entity("Altinay.ProjectGroups.ProjectGroupUser", b =>
                 {
-                    b.Property<Guid>("ProjectGroupId")
+                    b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("IdentityUserId")
                         .HasColumnType("uuid");
 
-                    b.HasKey("ProjectGroupId", "IdentityUserId");
+                    b.Property<Guid>("ProjectGroupId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
 
                     b.HasIndex("IdentityUserId");
 
-                    b.HasIndex("ProjectGroupId", "IdentityUserId")
-                        .IsUnique();
+                    b.HasIndex("ProjectGroupId");
 
                     b.ToTable("AppProjectGroupUser", "Altinay");
                 });
@@ -2457,6 +2462,12 @@ namespace Altinay.Migrations
 
             modelBuilder.Entity("Altinay.ProjectGroups.ProjectGroupUser", b =>
                 {
+                    b.HasOne("Altinay.ProjectGroups.ProjectGroup", null)
+                        .WithMany("Users")
+                        .HasForeignKey("Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
                     b.HasOne("Volo.Abp.Identity.IdentityUser", "IdentityUser")
                         .WithMany()
                         .HasForeignKey("IdentityUserId")
@@ -2464,7 +2475,7 @@ namespace Altinay.Migrations
                         .IsRequired();
 
                     b.HasOne("Altinay.ProjectGroups.ProjectGroup", "ProjectGroup")
-                        .WithMany("Users")
+                        .WithMany()
                         .HasForeignKey("ProjectGroupId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();

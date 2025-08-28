@@ -93,12 +93,12 @@
             <DetailRowTemplate Context="group">
                 <div class="p-2">
                     <h6>@L["AssignedPeople"]</h6>
-                    @if (group.Users?.Any() == true)
+                    @if (AvailableUsers.Any() == true)
                     {
                         <ul>
-                            @foreach (var user in group.Users)
+                            @foreach (var user in AvailableUsers)
                             {
-                                <li>@user.UserName (@user.Email)</li>
+                                <li>@user.UserName </li>
                             }
                         </ul>
                     }
@@ -268,6 +268,8 @@
             </ModalHeader>
             <ModalBody>
                 <Select TValue="Guid" @bind-SelectedValue="SelectedUserId" Class="form-control">
+                    <SelectItem>@L["None"]</SelectItem>
+
                     @if (AvailableUsers?.Any() == true)
                     {
                         @foreach (var user in AvailableUsers)
@@ -275,10 +277,7 @@
                             <SelectItem Value="@user.Id">@user.UserName </SelectItem>
                         }
                     }
-                    else
-                    {
-                        <SelectItem disabled>@L["NoUsersAvailable"]</SelectItem>
-                    }
+                
                 </Select>
             </ModalBody>
             <ModalFooter>

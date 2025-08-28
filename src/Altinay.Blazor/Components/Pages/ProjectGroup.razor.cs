@@ -64,8 +64,8 @@ namespace Altinay.Blazor.Components.Pages.ProjectGroups
 
             var result = await IdentityUserAppService.GetListAsync(new GetIdentityUsersInput());
             AvailableUsers = result.Items
-            .Where(u => group.Users.All(g => g.Id != u.Id))
-              .ToList();
+                .Where(u => group.Users.All(g => g.Id != u.Id))
+                .ToList();
 
             SelectedUserId = Guid.Empty;
             await AddPersonModal.Show();
@@ -86,21 +86,21 @@ namespace Altinay.Blazor.Components.Pages.ProjectGroups
 
             try
             {
-                // Call your AppService to add the user to the group
                 await ProjectGroupAppService.AddUserToGroupAsync(CurrentGroupId, SelectedUserId);
 
-                // Optionally refresh the group list or the current group
                 await GetProjectGroupsAsync();
-
                 await AddPersonModal.Hide();
                 await Message.Success("User added to group successfully.");
+
+                // Force UI to update
+                StateHasChanged();
             }
             catch (Exception ex)
             {
                 await Message.Error($"Failed to add user: {ex.Message}");
             }
         }
-        
+
         private void OnFileAliasCheckboxChanged(ChangeEventArgs e, Guid fileId)
         {
             var isChecked = e.Value == null ? false : (bool)e.Value == true;

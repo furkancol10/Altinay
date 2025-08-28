@@ -32,7 +32,7 @@ namespace Altinay.ProjectGroups
         public void AddUser(Guid userId)
         {
             if (userId == Guid.Empty) throw new ArgumentException("UserId cannot be empty.", nameof(userId));
-            if (_projectGroupUsers.Exists(pgu => pgu.Id == userId))
+            if (_projectGroupUsers.Exists(pgu => pgu.IdentityUserId == userId))
             {
                 throw new BusinessException("User already exists in the project group.");
             }

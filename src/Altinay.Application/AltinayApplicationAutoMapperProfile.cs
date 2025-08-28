@@ -1,13 +1,15 @@
-﻿using Altinay.Meeting.MeetingRoomDtos;
+﻿using Altinay.Files;
 using Altinay.Meeting;
+using Altinay.Meeting.CreateUpdateDtos;
+using Altinay.Meeting.MeetingRoomDtos;
 using Altinay.Personel;
 using Altinay.Personel.Departments;
 using Altinay.Personel.Managers;
-using AutoMapper;
-using Altinay.Meeting.CreateUpdateDtos;
-using Altinay.Projects;
-using Altinay.Files;
 using Altinay.ProjectGroups;
+using Altinay.Projects;
+using AutoMapper;
+using System.Linq;
+using Volo.Abp.Identity;
 
 
 namespace Altinay;
@@ -51,6 +53,15 @@ public class AltinayApplicationAutoMapperProfile : Profile
         CreateMap<ProjectGroup, CreateUpdateProjectGroupDto>();
         CreateMap<ProjectGroupDto, CreateUpdateProjectGroupDto>();
         CreateMap<CreateUpdateProjectGroupDto, ProjectGroupDto>();
+
+        CreateMap<ProjectGroup, ProjectGroupDto>()
+            .ForMember(dest => dest.Users, opt => opt.MapFrom(src =>
+                src.Users.Select(u => new IdentityUserDto
+                {
+                    Id = u.IdentityUserId
+                    // You may need to map more properties if available
+                }).ToList()
+            ));
 
 
 

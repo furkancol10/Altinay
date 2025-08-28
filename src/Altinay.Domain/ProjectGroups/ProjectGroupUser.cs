@@ -7,7 +7,14 @@ namespace Altinay.ProjectGroups
 {
     public class ProjectGroupUser : Entity
     {
-        public Guid Id { get; private set; }
+        public Guid IdentityUserId { get; private set; }
+
+        // Add a property to map to ABP's "Id" for IdentityUser
+        public Guid Id
+        {
+            get => IdentityUserId;
+            private set => IdentityUserId = value;
+        }
         public Guid ProjectGroupId { get; private set; }
 
         public virtual ProjectGroup ProjectGroup { get; set; }
@@ -18,12 +25,12 @@ namespace Altinay.ProjectGroups
         public ProjectGroupUser(Guid projectGroupId, Guid userId)
         {
             ProjectGroupId = projectGroupId;
-            Id = userId;
+            IdentityUserId = userId;
         }
 
         public override object?[] GetKeys()
         {
-            return new object?[] { ProjectGroupId, Id };
+            return new object?[] { ProjectGroupId, IdentityUserId };
         }
     }
 }

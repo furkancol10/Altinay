@@ -13,7 +13,7 @@ namespace Altinay.ProjectGroups
         Task<PagedResultDto<ProjectGroupDto>> GetListAsync(GetProjectGroupListDto input);
         Task<ProjectGroupDto> CreateAsync(CreateUpdateProjectGroupDto input);
         Task<ProjectGroupDto> UpdateAsync(Guid id, CreateUpdateProjectGroupDto input);
-        Task <ProjectGroupDto>AddUserToGroupAsync(Guid projectGroupId, Guid userId);
+        Task AddUserToGroupAsync(Guid projectGroupId, Guid userId);
         Task DeleteAsync(Guid id);
 
 

@@ -8,7 +8,7 @@ namespace Altinay.ProjectGroups
 {
     public class ProjectGroupDto : EntityDto<Guid>
     {
-        public Guid Id { get; set; }
+        public Guid IdentityUserId { get; set; }
         public string GroupName { get; set; }
         public Guid ProjectId { get; set; }
         public Guid FileAliasId { get; set; }

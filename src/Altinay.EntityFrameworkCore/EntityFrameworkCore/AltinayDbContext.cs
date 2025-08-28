@@ -81,7 +81,8 @@ public class AltinayDbContext :
     //
     //Project Groups
     public DbSet<ProjectGroup> ProjectGroups { get; set; }
-    public DbSet<IdentityUser> ProjectGroupUsers { get; set; }
+    public DbSet<ProjectGroupUser> ProjectGroupUsers { get; set; } // <-- FIXED: was IdentityUser
+
 
 
     public AltinayDbContext(DbContextOptions<AltinayDbContext> options)
@@ -250,20 +251,34 @@ public class AltinayDbContext :
                     .HasMaxLength(128);
             });
         //PROJECT GROUP USERS
+
         builder.Entity<ProjectGroupUser>(b =>
-            {
-                b.ToTable(AltinayConsts.DbTablePrefix + "ProjectGroupUser", AltinayConsts.DbSchema);
-                b.ConfigureByConvention(); // configure Id and auditing properties automatically
-                b.Property(x => x.ProjectGroupId)
-                    .IsRequired();
-                b.Property(x => x.Id)
-                    .IsRequired();
-                
-                b.HasOne<ProjectGroup>()
-                    .WithMany(p => p.Users)
-                    .HasForeignKey(p => p.IdentityUser)
-                    .IsRequired()
-                    .OnDelete(DeleteBehavior.Cascade);
-            });
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "ProjectGroupUser", AltinayConsts.DbSchema);
+            b.ConfigureByConvention(); // configure Id and auditing properties automatically
+
+            b.Property(x => x.ProjectGroupId)
+                .IsRequired();
+            b.Property(x => x.IdentityUserId)
+                .IsRequired();
+
+            // Define composite primary key
+            b.HasKey(x => new { x.ProjectGroupId, x.IdentityUserId });
+
+            b.HasOne(x => x.ProjectGroup)
+                .WithMany(p => p.Users)
+                .HasForeignKey(x => x.ProjectGroupId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.IdentityUser)
+                .WithMany()
+                .HasForeignKey(x => x.IdentityUserId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Ensure a user can only be in a group once
+            b.HasIndex(x => new { x.ProjectGroupId, x.IdentityUserId }).IsUnique();
+        });
     }
 }
