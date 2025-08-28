@@ -12,7 +12,7 @@ namespace Altinay.ProjectGroups
         public string GroupName { get; set; }
         public Guid ProjectId { get; set; }
         public Guid FileAliasId { get; set; }
-        public List<IdentityUserDto> People { get; set; } = new();
+        public List<IdentityUserDto> Users { get; set; } = new();
 
     }
 }

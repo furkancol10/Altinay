@@ -81,6 +81,8 @@ public class AltinayDbContext :
     //
     //Project Groups
     public DbSet<ProjectGroup> ProjectGroups { get; set; }
+    public DbSet<IdentityUser> ProjectGroupUsers { get; set; }
+
 
     public AltinayDbContext(DbContextOptions<AltinayDbContext> options)
         : base(options)
@@ -246,6 +248,22 @@ public class AltinayDbContext :
                     .IsRequired();
                 b.Property(x => x.GroupName)
                     .HasMaxLength(128);
+            });
+        //PROJECT GROUP USERS
+        builder.Entity<ProjectGroupUser>(b =>
+            {
+                b.ToTable(AltinayConsts.DbTablePrefix + "ProjectGroupUser", AltinayConsts.DbSchema);
+                b.ConfigureByConvention(); // configure Id and auditing properties automatically
+                b.Property(x => x.ProjectGroupId)
+                    .IsRequired();
+                b.Property(x => x.Id)
+                    .IsRequired();
+                
+                b.HasOne<ProjectGroup>()
+                    .WithMany(p => p.Users)
+                    .HasForeignKey(p => p.IdentityUser)
+                    .IsRequired()
+                    .OnDelete(DeleteBehavior.Cascade);
             });
     }
 }

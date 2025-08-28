@@ -1,24 +1,34 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Altinay.Projects;
-using Altinay.Files;
-using Altinay.ProjectGroups;
+﻿using Altinay.Files;
 using Altinay.Permissions;
+using Altinay.ProjectGroups;
+using Altinay.Projects;
+using Autofac.Core;
 using Blazorise;
 using Blazorise.DataGrid;
 using Microsoft.AspNetCore.Authorization;
-using Volo.Abp.Application.Dtos;
-using Volo.Abp.ObjectMapping;
-using Autofac.Core;
 using Microsoft.AspNetCore.Components;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Volo.Abp.Application.Dtos;
+using Volo.Abp.Identity;
+using Volo.Abp.ObjectMapping;
 
 namespace Altinay.Blazor.Components.Pages.ProjectGroups
 {
     public partial class ProjectGroup : IDisposable
     {
-        //private bool _disposed;
+        // modal refs
+        private Modal AddPersonModal;
+
+        // state
+        private Guid CurrentGroupId;
+        private Guid SelectedUserId;
+        private List<IdentityUserDto> AvailableUsers = new();
+
+        [Inject] private IIdentityUserAppService IdentityUserAppService { get; set; } = default!;
+
         private IReadOnlyList<ProjectGroupDto> ProjectGroupList { get; set; }
         private IReadOnlyList<ProjectDto> ProjectList { get; set; }
         private IReadOnlyList<FileDto> FileList { get; set; }
@@ -48,6 +58,49 @@ namespace Altinay.Blazor.Components.Pages.ProjectGroups
 
         // In ProjectGroup.razor.cs
 
+        private async Task OpenAddPersonModal(ProjectGroupDto group)
+        {
+            CurrentGroupId = group.Id;
+
+            var result = await IdentityUserAppService.GetListAsync(new GetIdentityUsersInput());
+            AvailableUsers = result.Items
+            .Where(u => group.Users.All(g => g.Id != u.Id))
+              .ToList();
+
+            SelectedUserId = Guid.Empty;
+            await AddPersonModal.Show();
+        }
+
+        private Task CloseAddPersonModal()
+        {
+            return AddPersonModal.Hide();
+        }
+
+        private async Task AddPersonToGroupAsync()
+        {
+            if (SelectedUserId == Guid.Empty)
+            {
+                await Message.Error("Please select a user to add.");
+                return;
+            }
+
+            try
+            {
+                // Call your AppService to add the user to the group
+                await ProjectGroupAppService.AddUserToGroupAsync(CurrentGroupId, SelectedUserId);
+
+                // Optionally refresh the group list or the current group
+                await GetProjectGroupsAsync();
+
+                await AddPersonModal.Hide();
+                await Message.Success("User added to group successfully.");
+            }
+            catch (Exception ex)
+            {
+                await Message.Error($"Failed to add user: {ex.Message}");
+            }
+        }
+        
         private void OnFileAliasCheckboxChanged(ChangeEventArgs e, Guid fileId)
         {
             var isChecked = e.Value == null ? false : (bool)e.Value == true;
@@ -86,8 +139,17 @@ namespace Altinay.Blazor.Components.Pages.ProjectGroups
 
         private async Task LoadProjectsAsync()
         {
-            var result = await ProjectAppService.GetListAsync(new GetProjectListDto { MaxResultCount = 1000 });
-            ProjectList = result.Items;
+            try
+            {
+                var result = await ProjectAppService.GetListAsync(new GetProjectListDto { MaxResultCount = 1000 });
+                ProjectList = result.Items;
+            }
+            catch (Volo.Abp.Authorization.AbpAuthorizationException)
+            {
+                // Handle lack of permission gracefully
+                await Message.Error("You do not have permission to view projects.");
+                ProjectList = Array.Empty<ProjectDto>();
+            }
         }
 
         private async Task LoadFilesAsync()

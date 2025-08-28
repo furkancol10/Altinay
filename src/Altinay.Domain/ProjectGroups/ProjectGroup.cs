@@ -1,9 +1,12 @@
-﻿using System;
-using Volo.Abp.Domain.Entities.Auditing;
-using Altinay.Files;
+﻿using Altinay.Files;
 using Altinay.Projects;
-using Volo.Abp;
+using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using Volo.Abp;
+using Volo.Abp.Domain.Entities.Auditing;
+using Volo.Abp.Identity;
+using static Volo.Abp.Identity.Settings.IdentitySettingNames;
 
 namespace Altinay.ProjectGroups
 {
@@ -12,7 +15,11 @@ namespace Altinay.ProjectGroups
         public string GroupName { get; private set; }
         public Guid ProjectId { get; private set; }
         public Guid FileAliasId { get; private set; }
+        //collection
+        public virtual ICollection<ProjectGroupUser> Users { get; set; } = new List<ProjectGroupUser>();
 
+        //private list
+        private List<ProjectGroupUser> _projectGroupUsers = new List<ProjectGroupUser>();
 
         private ProjectGroup() { }
 
@@ -21,7 +28,18 @@ namespace Altinay.ProjectGroups
             ProjectId = projectId;
             FileAliasId = fileAliasId;
         }
-
+        
+        public void AddUser(Guid userId)
+        {
+            if (userId == Guid.Empty) throw new ArgumentException("UserId cannot be empty.", nameof(userId));
+            if (_projectGroupUsers.Exists(pgu => pgu.Id == userId))
+            {
+                throw new BusinessException("User already exists in the project group.");
+            }
+            var projectGroupUser = new ProjectGroupUser(this.Id, userId);
+            _projectGroupUsers.Add(projectGroupUser);
+            Users.Add(projectGroupUser);
+        }
         public void ChangeProjectGroup(Guid newProjectId, Guid newFileAliasId)
         {
             if (newProjectId == Guid.Empty) throw new ArgumentException("ProjectId cannot be empty.", nameof(newProjectId));

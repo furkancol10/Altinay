@@ -27,6 +27,7 @@ public class AltinayPermissionDefinitionProvider : PermissionDefinitionProvider
         projectGroupsPermission.AddChild(AltinayPermissions.ProjectGroups.Update, L("Permission:Update"));
         projectGroupsPermission.AddChild(AltinayPermissions.ProjectGroups.Delete, L("Permission:Delete"));
 
+
     }
 
 

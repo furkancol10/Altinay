@@ -1,13 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
-using Altinay.Files;
+﻿using Altinay.Files;
 using Altinay.Permissions;
 using Altinay.Projects;
 using Microsoft.AspNetCore.Authorization;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
+using Volo.Abp.Domain.Entities;
 using Volo.Abp.Domain.Repositories;
 
 namespace Altinay.ProjectGroups
@@ -19,6 +21,7 @@ namespace Altinay.ProjectGroups
         private readonly ProjectGroupManager _projectGroupManager;
         private readonly IProjectRepository _projectRepository;
         private readonly IFileRepository _fileRepository;
+
 
 
         public ProjectGroupAppService(
@@ -37,7 +40,20 @@ namespace Altinay.ProjectGroups
             var projectGroup = await _projectGroupRepository.GetAsync(id);
             return ObjectMapper.Map<ProjectGroup, ProjectGroupDto>(projectGroup);
         }
+        public async Task AddUserToGroupAsync(Guid projectGroupId, Guid userId)
+        {
+            var projectGroup = await _projectGroupRepository.GetAsync(projectGroupId);
+            if (projectGroup == null)
+                throw new EntityNotFoundException($"Project group {projectGroupId} not found.");
 
+            // Prevent adding the same user twice
+            if (!projectGroup.Users.Any(u => u.Id == userId))
+            {
+                projectGroup.AddUser(userId);
+                await _projectGroupRepository.UpdateAsync(projectGroup);
+            }
+            // else: Optionally throw or ignore if already present
+        }
         public async Task<PagedResultDto<ProjectGroupDto>> GetListAsync(GetProjectGroupListDto input)
         {
             if (input.Sorting.IsNullOrWhiteSpace())

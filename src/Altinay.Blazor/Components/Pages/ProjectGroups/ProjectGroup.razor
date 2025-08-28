@@ -33,6 +33,7 @@
                   ReadData="OnDataGridReadAsync"
                   TotalItems="TotalCount"
                   ShowPager="true"
+                  DetailRowStartsVisible="false"
                   PageSize="PageSize">
             <DataGridColumns>
                 <!-- Actions column - no Field binding -->
@@ -58,6 +59,13 @@
                                         @L["Delete"]
                                     </DropdownItem>
                                 }
+                                @if (CanEditProjectGroup)
+                                {
+                                    <DropdownItem Clicked="() => OpenAddPersonModal(context)">
+                                        @L["Add Person"]
+                                    </DropdownItem>
+                                }
+
                             </DropdownMenu>
                         </Dropdown>
                     </DisplayTemplate>
@@ -82,6 +90,25 @@
                     </DisplayTemplate>
                 </DataGridColumn>
             </DataGridColumns>
+            <DetailRowTemplate Context="group">
+                <div class="p-2">
+                    <h6>@L["AssignedPeople"]</h6>
+                    @if (group.Users?.Any() == true)
+                    {
+                        <ul>
+                            @foreach (var user in group.Users)
+                            {
+                                <li>@user.UserName (@user.Email)</li>
+                            }
+                        </ul>
+                    }
+                    else
+                    {
+                        <em>@L["NoPeopleAssigned"]</em>
+                    }
+                </div>
+            </DetailRowTemplate>
+
         </DataGrid>
 
     </CardBody>
@@ -226,6 +253,37 @@
                         Disabled="@(ProjectList is null || ProjectList.Count == 0 || FileList is null || FileList.Count == 0)">
                     @L["Save"]
                 </Button>
+            </ModalFooter>
+        </Form>
+    </ModalContent>
+</Modal>
+<!-- Add Person Modal -->
+<Modal @ref="AddPersonModal">
+    <ModalBackdrop />
+    <ModalContent IsCentered="true">
+        <Form>
+            <ModalHeader>
+                <ModalTitle>@L["AddPerson"]</ModalTitle>
+                <CloseButton Clicked="CloseAddPersonModal" />
+            </ModalHeader>
+            <ModalBody>
+                <Select TValue="Guid" @bind-SelectedValue="SelectedUserId" Class="form-control">
+                    @if (AvailableUsers?.Any() == true)
+                    {
+                        @foreach (var user in AvailableUsers)
+                        {
+                            <SelectItem Value="@user.Id">@user.UserName </SelectItem>
+                        }
+                    }
+                    else
+                    {
+                        <SelectItem disabled>@L["NoUsersAvailable"]</SelectItem>
+                    }
+                </Select>
+            </ModalBody>
+            <ModalFooter>
+                <Button Color="Color.Secondary" Clicked="CloseAddPersonModal">@L["Cancel"]</Button>
+                <Button Color="Color.Primary" Clicked="AddPersonToGroupAsync">@L["Add"]</Button>
             </ModalFooter>
         </Form>
     </ModalContent>
