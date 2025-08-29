@@ -2,6 +2,9 @@
 using Altinay.Personel;
 using Altinay.Personel.Departments;
 using Altinay.Personel.Managers;
+using Altinay.Projects;
+using Altinay.ProjectGroups;
+using Altinay.Files;
 using Microsoft.EntityFrameworkCore;
 using Volo.Abp.AuditLogging.EntityFrameworkCore;
 using Volo.Abp.BackgroundJobs.EntityFrameworkCore;
@@ -67,6 +70,20 @@ public class AltinayDbContext :
     public DbSet<TenantConnectionString> TenantConnectionStrings { get; set; }
 
     #endregion
+    //
+    //Projects
+    //
+    public DbSet<Project> Projects { get; set; }
+    //
+    //Files
+    //
+    public DbSet<File> Files { get; set; }
+    //
+    //Project Groups
+    public DbSet<ProjectGroup> ProjectGroups { get; set; }
+    public DbSet<ProjectGroupUser> ProjectGroupUsers { get; set; } // <-- FIXED: was IdentityUser
+
+
 
     public AltinayDbContext(DbContextOptions<AltinayDbContext> options)
         : base(options)
@@ -77,6 +94,11 @@ public class AltinayDbContext :
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+
+        builder.Entity<ProjectGroup>(entity =>
+        {
+            entity.Ignore(e => e.ExtraProperties);
+        });
 
         /* Include modules to your migration db context */
 
@@ -183,6 +205,80 @@ public class AltinayDbContext :
             .WithMany()
             .HasForeignKey(r => r.RoomID)
             .IsRequired();     
+        });
+        //PROJECTS 
+        builder.Entity<Project>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "Project", AltinayConsts.DbSchema);
+
+            b.ConfigureByConvention(); // configure Id and auditing properties automatically
+            b.Property(x => x.ProjectCode);
+
+            b.Property(x => x.ProjectName)
+                .IsRequired()
+                .HasMaxLength(128);
+
+            b.Property(x => x.ProjectDescription);
+        });
+
+        //FILES(FileAlias,DileDesriptşon IsActive)
+        builder.Entity<File>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "File", AltinayConsts.DbSchema);
+            b.ConfigureByConvention(); // configure Id and auditing properties automatically
+            b.Property(x => x.FileAlias)
+                .IsRequired()
+                .HasMaxLength(128);
+            b.Property(x => x.FileDescription)
+                .HasMaxLength(512);
+            b.Property(x => x.IsActive);
+        });
+        //PROJECT GROUPS
+        builder.Entity<ProjectGroup>(b =>
+            {
+                b.ToTable(AltinayConsts.DbTablePrefix + "ProjectGroup", AltinayConsts.DbSchema);
+                b.ConfigureByConvention(); // configure Id and auditing properties automatically
+
+                b.Property(x => x.GroupName)
+                    .IsRequired()
+                    .HasMaxLength(128);
+
+                b.Property(x => x.ProjectId)
+                    .IsRequired();
+                b.Property(x => x.FileAliasId)
+                    .IsRequired();
+                b.Property(x => x.GroupName)
+                    .HasMaxLength(128);
+            });
+        //PROJECT GROUP USERS
+
+        builder.Entity<ProjectGroupUser>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "ProjectGroupUser", AltinayConsts.DbSchema);
+            b.ConfigureByConvention(); // configure Id and auditing properties automatically
+
+            b.Property(x => x.ProjectGroupId)
+                .IsRequired();
+            b.Property(x => x.IdentityUserId)
+                .IsRequired();
+
+            // Define composite primary key
+            b.HasKey(x => new { x.ProjectGroupId, x.IdentityUserId });
+
+            b.HasOne(x => x.ProjectGroup)
+                .WithMany(p => p.Users)
+                .HasForeignKey(x => x.ProjectGroupId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne(x => x.IdentityUser)
+                .WithMany()
+                .HasForeignKey(x => x.IdentityUserId)
+                .IsRequired()
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Ensure a user can only be in a group once
+            b.HasIndex(x => new { x.ProjectGroupId, x.IdentityUserId }).IsUnique();
         });
     }
 }

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Altinay.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Volo.Abp.EntityFrameworkCore;
@@ -13,9 +14,11 @@ using Volo.Abp.EntityFrameworkCore;
 namespace Altinay.Migrations
 {
     [DbContext(typeof(AltinayDbContext))]
-    partial class AltinayDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250828061928_Identity_User")]
+    partial class Identity_User
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -601,24 +604,6 @@ namespace Altinay.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("AppProjectGroup", "Altinay");
-                });
-
-            modelBuilder.Entity("Altinay.ProjectGroups.ProjectGroupUser", b =>
-                {
-                    b.Property<Guid>("ProjectGroupId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("IdentityUserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("ProjectGroupId", "IdentityUserId");
-
-                    b.HasIndex("IdentityUserId");
-
-                    b.HasIndex("ProjectGroupId", "IdentityUserId")
-                        .IsUnique();
-
-                    b.ToTable("AppProjectGroupUser", "Altinay");
                 });
 
             modelBuilder.Entity("Altinay.Projects.Project", b =>
@@ -2455,25 +2440,6 @@ namespace Altinay.Migrations
                     b.Navigation("Floor");
                 });
 
-            modelBuilder.Entity("Altinay.ProjectGroups.ProjectGroupUser", b =>
-                {
-                    b.HasOne("Volo.Abp.Identity.IdentityUser", "IdentityUser")
-                        .WithMany()
-                        .HasForeignKey("IdentityUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Altinay.ProjectGroups.ProjectGroup", "ProjectGroup")
-                        .WithMany("Users")
-                        .HasForeignKey("ProjectGroupId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("IdentityUser");
-
-                    b.Navigation("ProjectGroup");
-                });
-
             modelBuilder.Entity("Volo.Abp.AuditLogging.AuditLogAction", b =>
                 {
                     b.HasOne("Volo.Abp.AuditLogging.AuditLog", null)
@@ -2614,11 +2580,6 @@ namespace Altinay.Migrations
                         .HasForeignKey("TenantId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-                });
-
-            modelBuilder.Entity("Altinay.ProjectGroups.ProjectGroup", b =>
-                {
-                    b.Navigation("Users");
                 });
 
             modelBuilder.Entity("Volo.Abp.AuditLogging.AuditLog", b =>
