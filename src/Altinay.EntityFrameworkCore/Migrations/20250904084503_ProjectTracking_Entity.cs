@@ -5,7 +5,7 @@
 namespace Altinay.Migrations
 {
     /// <inheritdoc />
-    public partial class Add_Floor_Entity : Migration
+    public partial class ProjectTracking_Entity : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

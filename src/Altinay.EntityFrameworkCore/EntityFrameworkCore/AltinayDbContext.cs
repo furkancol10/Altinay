@@ -20,6 +20,10 @@ using Volo.Abp.PermissionManagement.EntityFrameworkCore;
 using Volo.Abp.SettingManagement.EntityFrameworkCore;
 using Volo.Abp.TenantManagement;
 using Volo.Abp.TenantManagement.EntityFrameworkCore;
+using Altinay.Domain.ProjectTracking;
+
+
+
 
 namespace Altinay.EntityFrameworkCore;
 
@@ -82,6 +86,11 @@ public class AltinayDbContext :
     //Project Groups
     public DbSet<ProjectGroup> ProjectGroups { get; set; }
     public DbSet<ProjectGroupUser> ProjectGroupUsers { get; set; } // <-- FIXED: was IdentityUser
+
+    //Project Tracking
+    public DbSet<TrackingProject> TrackingProjects { get; set; }
+    public DbSet<TrackingIssue> TrackingIssues { get; set; }
+
 
 
 
@@ -158,6 +167,43 @@ public class AltinayDbContext :
             b.Property(x => x.RequesterTitle).IsRequired().HasMaxLength(128);
             
         });
+
+        //TRACKİNG PROJECT
+        // TrackingProject
+        builder.Entity<TrackingProject>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "TrackingProject", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            b.Property(x => x.Name).IsRequired().HasMaxLength(128);
+            b.Property(x => x.Key).IsRequired().HasMaxLength(8);
+
+            b.HasIndex(x => x.Key).IsUnique();
+        });
+
+        // TrackingIssue
+        builder.Entity<TrackingIssue>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "TrackingIssue", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            b.Property(x => x.Title).IsRequired().HasMaxLength(128);
+            b.Property(x => x.Status).IsRequired();   // enum
+            b.Property(x => x.Priority).IsRequired(); // enum
+
+            // indexler
+            b.HasIndex(x => x.ProjectId);
+            b.HasIndex(x => x.Status);
+            b.HasIndex(x => x.DueDate);
+
+            // ilişki: Issue -> Project
+            b.HasOne<TrackingProject>()
+             .WithMany()
+             .HasForeignKey(x => x.ProjectId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+
 
         //
         //Yöneticiler
@@ -280,5 +326,7 @@ public class AltinayDbContext :
             // Ensure a user can only be in a group once
             b.HasIndex(x => new { x.ProjectGroupId, x.IdentityUserId }).IsUnique();
         });
+
+
     }
 }

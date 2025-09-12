@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Altinay.Migrations
 {
     /// <inheritdoc />
-    public partial class Added_ProjectGroups : Migration
+    public partial class Created_ProjectGroups_Entity : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -33,38 +33,56 @@ namespace Altinay.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_AppProjectGroup", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AppProjectGroupUser",
+                schema: "Altinay",
+                columns: table => new
+                {
+                    IdentityUserId = table.Column<Guid>(type: "uuid", nullable: false),
+                    ProjectGroupId = table.Column<Guid>(type: "uuid", nullable: false),
+                    Id = table.Column<Guid>(type: "uuid", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AppProjectGroupUser", x => new { x.ProjectGroupId, x.IdentityUserId });
                     table.ForeignKey(
-                        name: "FK_AppProjectGroup_AppFile_FileAliasId",
-                        column: x => x.FileAliasId,
-                        principalSchema: "Altinay",
-                        principalTable: "AppFile",
+                        name: "FK_AppProjectGroupUser_AbpUsers_IdentityUserId",
+                        column: x => x.IdentityUserId,
+                        principalTable: "AbpUsers",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "FK_AppProjectGroup_AppProject_ProjectId",
-                        column: x => x.ProjectId,
+                        name: "FK_AppProjectGroupUser_AppProjectGroup_ProjectGroupId",
+                        column: x => x.ProjectGroupId,
                         principalSchema: "Altinay",
-                        principalTable: "AppProject",
+                        principalTable: "AppProjectGroup",
                         principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_AppProjectGroup_FileAliasId",
+                name: "IX_AppProjectGroupUser_IdentityUserId",
                 schema: "Altinay",
-                table: "AppProjectGroup",
-                column: "FileAliasId");
+                table: "AppProjectGroupUser",
+                column: "IdentityUserId");
 
             migrationBuilder.CreateIndex(
-                name: "IX_AppProjectGroup_ProjectId",
+                name: "IX_AppProjectGroupUser_ProjectGroupId_IdentityUserId",
                 schema: "Altinay",
-                table: "AppProjectGroup",
-                column: "ProjectId");
+                table: "AppProjectGroupUser",
+                columns: new[] { "ProjectGroupId", "IdentityUserId" },
+                unique: true);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "AppProjectGroupUser",
+                schema: "Altinay");
+
             migrationBuilder.DropTable(
                 name: "AppProjectGroup",
                 schema: "Altinay");

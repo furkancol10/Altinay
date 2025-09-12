@@ -1,4 +1,5 @@
-﻿using Altinay.Files;
+﻿using Altinay.Domain.ProjectTracking;
+using Altinay.Files;
 using Altinay.Meeting;
 using Altinay.Meeting.CreateUpdateDtos;
 using Altinay.Meeting.MeetingRoomDtos;
@@ -7,9 +8,13 @@ using Altinay.Personel.Departments;
 using Altinay.Personel.Managers;
 using Altinay.ProjectGroups;
 using Altinay.Projects;
+using Altinay.ProjectTracking.CreateUpdateDtos;
+using Altinay.ProjectTracking.ProjectTrackingDtos;
 using AutoMapper;
 using System.Linq;
+using Volo.Abp.AutoMapper;
 using Volo.Abp.Identity;
+
 
 
 namespace Altinay;
@@ -53,6 +58,15 @@ public class AltinayApplicationAutoMapperProfile : Profile
         CreateMap<ProjectGroup, CreateUpdateProjectGroupDto>();
         CreateMap<ProjectGroupDto, CreateUpdateProjectGroupDto>();
         CreateMap<CreateUpdateProjectGroupDto, ProjectGroupDto>();
+        // Project
+        CreateMap<TrackingProject, TrackingProjectDto>();
+        CreateMap<CreateUpdateTrackingProjectDto, TrackingProject>()
+            .IgnoreAuditedObjectProperties(); 
+
+        // Issue
+        CreateMap<TrackingIssue, TrackingIssueDto>();
+        CreateMap<CreateUpdateTrackingIssueDto, TrackingIssue>()
+            .IgnoreAuditedObjectProperties();
 
         CreateMap<ProjectGroup, ProjectGroupDto>()
             .ForMember(dest => dest.Users, opt => opt.MapFrom(src =>

@@ -8,6 +8,7 @@ using Volo.Abp.Domain.Repositories;
 
 namespace Altinay
 {
+
     public class AltinayDataSeederContributor : IDataSeedContributor, ITransientDependency
     {
         private readonly IRepository<Project, Guid> _projectRepository;
