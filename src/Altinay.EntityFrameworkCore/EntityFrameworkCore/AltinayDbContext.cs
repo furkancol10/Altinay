@@ -90,6 +90,15 @@ public class AltinayDbContext :
     //Project Tracking
     public DbSet<TrackingProject> TrackingProjects { get; set; }
     public DbSet<TrackingIssue> TrackingIssues { get; set; }
+    public DbSet<TrackingComment> TrackingComments { get; set; }
+    public DbSet<TrackingAttachment> TrackingAttachments { get; set; }
+    public DbSet<TrackingTag> TrackingTags { get; set; }
+    public DbSet<TrackingIssueTag> TrackingIssueTags { get; set; }
+    public DbSet<TrackingTimeLog> TrackingTimeLogs { get; set; }
+
+    //Project Tracking Members
+    public DbSet<TrackingProjectMember> TrackingProjectMembers { get; set; }
+
 
 
 
@@ -267,7 +276,7 @@ public class AltinayDbContext :
             b.Property(x => x.ProjectDescription);
         });
 
-        //FILES(FileAlias,DileDesriptşon IsActive)
+        
         builder.Entity<File>(b =>
         {
             b.ToTable(AltinayConsts.DbTablePrefix + "File", AltinayConsts.DbSchema);
@@ -327,6 +336,134 @@ public class AltinayDbContext :
             b.HasIndex(x => new { x.ProjectGroupId, x.IdentityUserId }).IsUnique();
         });
 
+        //TRACKİNG MEMBER 
+        builder.Entity<TrackingProjectMember>(b =>
+        {
+            b.ToTable("AppTrackingProjectMembers");
+            b.ConfigureByConvention();
+            b.HasIndex(x => new { x.ProjectId, x.UserId }).IsUnique();
+        });
+
+        //TRACKİNG COMMENT
+        builder.Entity<TrackingComment>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "TrackingComment", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            b.Property(x => x.Content).IsRequired().HasMaxLength(2000);
+            b.Property(x => x.CreationTime).IsRequired();
+
+            // Indexes
+            b.HasIndex(x => x.IssueId);
+            b.HasIndex(x => x.UserId);
+            b.HasIndex(x => x.CreationTime);
+
+            // Relationships
+            b.HasOne<TrackingIssue>()
+             .WithMany()
+             .HasForeignKey(x => x.IssueId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne<IdentityUser>()
+             .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        //TRACKING ATTACHMENT
+        builder.Entity<TrackingAttachment>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "TrackingAttachment", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            b.Property(x => x.FileName).IsRequired().HasMaxLength(255);
+            b.Property(x => x.FilePath).IsRequired().HasMaxLength(500);
+            b.Property(x => x.ContentType).IsRequired().HasMaxLength(100);
+
+            // Indexes
+            b.HasIndex(x => x.IssueId);
+            b.HasIndex(x => x.UploadedByUserId);
+
+            // Relationships
+            b.HasOne<TrackingIssue>()
+             .WithMany()
+             .HasForeignKey(x => x.IssueId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne<IdentityUser>()
+             .WithMany()
+             .HasForeignKey(x => x.UploadedByUserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        //TRACKING TAG
+        builder.Entity<TrackingTag>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "TrackingTag", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            b.Property(x => x.Name).IsRequired().HasMaxLength(100);
+            b.Property(x => x.Color).IsRequired().HasMaxLength(20);
+
+            // Indexes
+            b.HasIndex(x => x.ProjectId);
+            b.HasIndex(x => new { x.Name, x.ProjectId }).IsUnique();
+
+            // Relationships
+            b.HasOne<TrackingProject>()
+             .WithMany()
+             .HasForeignKey(x => x.ProjectId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        //TRACKING ISSUE TAG (Many-to-Many)
+        builder.Entity<TrackingIssueTag>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "TrackingIssueTag", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            // Indexes
+            b.HasIndex(x => x.IssueId);
+            b.HasIndex(x => x.TagId);
+            b.HasIndex(x => new { x.IssueId, x.TagId }).IsUnique();
+
+            // Relationships
+            b.HasOne<TrackingIssue>()
+             .WithMany()
+             .HasForeignKey(x => x.IssueId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne<TrackingTag>()
+             .WithMany()
+             .HasForeignKey(x => x.TagId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        //TRACKING TIME LOG
+        builder.Entity<TrackingTimeLog>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "TrackingTimeLog", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            b.Property(x => x.Description).HasMaxLength(500);
+
+            // Indexes
+            b.HasIndex(x => x.IssueId);
+            b.HasIndex(x => x.UserId);
+            b.HasIndex(x => x.StartTime);
+            b.HasIndex(x => x.IsActive);
+
+            // Relationships
+            b.HasOne<TrackingIssue>()
+             .WithMany()
+             .HasForeignKey(x => x.IssueId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne<IdentityUser>()
+             .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
 
     }
 }

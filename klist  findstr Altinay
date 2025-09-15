@@ -1,0 +1,20 @@
+[33mcommit cae97c220ae288a824cbabd0898232c3ff8764ed[m[33m ([m[1;31morigin/Esma[m[33m, [m[1;32mEsma[m[33m)[m
+Author: Esma Toksoy <esma.toksoy@std.antalya.edu.tr>
+Date:   Thu Aug 28 17:01:00 2025 +0300
+
+    Fully works just name search missing
+
+src/Altinay.Application.Contracts/ProjectGroups/IProjectGroupAppService.cs
+src/Altinay.Application.Contracts/ProjectGroups/ProjectGroupDto.cs
+src/Altinay.Application/AltinayApplicationAutoMapperProfile.cs
+src/Altinay.Application/ProjectGroups/ProjectGroupAppService.cs
+src/Altinay.Blazor/Components/Pages/ProjectGroup.razor.cs
+src/Altinay.Blazor/Components/Pages/ProjectGroups/ProjectGroup.razor
+src/Altinay.Domain/ProjectGroups/ProjectGroup.cs
+src/Altinay.Domain/ProjectGroups/ProjectGroupUser.cs
+src/Altinay.EntityFrameworkCore/EntityFrameworkCore/AltinayDbContext.cs
+src/Altinay.EntityFrameworkCore/Migrations/20250828111828_Added_ProjectGroupUsers.Designer.cs
+src/Altinay.EntityFrameworkCore/Migrations/20250828111828_Added_ProjectGroupUsers.cs
+src/Altinay.EntityFrameworkCore/Migrations/20250828113233_FixProjectGroupUserKey.Designer.cs
+src/Altinay.EntityFrameworkCore/Migrations/20250828113233_FixProjectGroupUserKey.cs
+src/Altinay.EntityFrameworkCore/Migrations/AltinayDbContextModelSnapshot.cs

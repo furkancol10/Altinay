@@ -42,7 +42,7 @@ public class ProjectTrackingDataSeedContributor : IDataSeedContributor, ITransie
             {
                 ProjectId = project.Id,
                 Title = "Temizlik",
-                Status = IssueStatus.Todo,
+                Status = IssueStatus.ToDo,
                 Priority = IssuePriority.Medium,
                 DueDate = DateTime.UtcNow.AddDays(3)
             });
@@ -60,12 +60,12 @@ public class ProjectTrackingDataSeedContributor : IDataSeedContributor, ITransie
             {
                 ProjectId = project.Id,
                 Title = "Rapor grafikleri",
-                Status = IssueStatus.Review,
+                Status = IssueStatus.InReview,
                 Priority = IssuePriority.Low,
                 DueDate = DateTime.UtcNow.AddDays(7)
             });
 
-            await _issueRepository.InsertAsync(new TrackingIssue
+            _ = await _issueRepository.InsertAsync(new TrackingIssue
             {
                 ProjectId = project.Id,
                 Title = "Deploy pipeline",
@@ -79,7 +79,7 @@ public class ProjectTrackingDataSeedContributor : IDataSeedContributor, ITransie
             {
                 ProjectId = project.Id,
                 Title = "Form validasyonları",
-                Status = IssueStatus.Todo,
+                Status = IssueStatus.ToDo,
                 Priority = IssuePriority.High,
                 DueDate = DateTime.UtcNow.AddDays(-2) // overdue
             });

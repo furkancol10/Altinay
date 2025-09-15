@@ -1,6 +1,7 @@
 ﻿using System;
 using Volo.Abp.Application.Dtos;
-using Altinay.Domain.ProjectTracking; // IssueStatus, IssuePriority
+using Altinay.Domain.ProjectTracking;
+using Altinay.Enums; // IssueStatus, IssuePriority
 
 namespace Altinay.ProjectTracking.ProjectTrackingDtos
 {

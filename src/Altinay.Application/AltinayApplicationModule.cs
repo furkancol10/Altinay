@@ -11,14 +11,14 @@ namespace Altinay;
 
 [DependsOn(
     typeof(AltinayDomainModule),
-    typeof(AbpAccountApplicationModule),
+    typeof(AbpAccountApplicationModule),   
     typeof(AltinayApplicationContractsModule),
     typeof(AbpIdentityApplicationModule),
     typeof(AbpPermissionManagementApplicationModule),
     typeof(AbpTenantManagementApplicationModule),
     typeof(AbpFeatureManagementApplicationModule),
     typeof(AbpSettingManagementApplicationModule)
-    )]
+)]
 public class AltinayApplicationModule : AbpModule
 {
     public override void ConfigureServices(ServiceConfigurationContext context)

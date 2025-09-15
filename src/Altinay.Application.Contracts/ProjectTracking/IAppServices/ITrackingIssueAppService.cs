@@ -1,7 +1,10 @@
-﻿using System;
-using Volo.Abp.Application.Services;
-using Altinay.ProjectTracking.ProjectTrackingDtos;
+﻿using Altinay.Domain.ProjectTracking;
+using Altinay.Enums;
 using Altinay.ProjectTracking.CreateUpdateDtos;
+using Altinay.ProjectTracking.ProjectTrackingDtos;
+using System;
+using System.Threading.Tasks;
+using Volo.Abp.Application.Services;
 
 namespace Altinay.ProjectTracking.IAppServices
 {
@@ -9,14 +12,18 @@ namespace Altinay.ProjectTracking.IAppServices
         : ICrudAppService<
             TrackingIssueDto,            // DTO dönen tip
             Guid,                        // Id tipi
-            TrackingIssueSearchInput,    // Listeleme girdi modeli (filtreler)
+            TrackingIssueSearchInput,    // Listeleme girdi modeli
             CreateUpdateTrackingIssueDto // Create/Update girdi modeli
+
         >
+
+
     {
-        // İleride ekleyeceğiz (drag&drop/atama):
-        // Task ChangeStatusAsync(Guid id, IssueStatus newStatus);
-        // Task ReorderAsync(Guid projectId, IssueStatus status, List<Guid> orderedIds);
-        // Task AssignAsync(Guid id, Guid userId);
-        // Task UnassignAsync(Guid id);
+        Task<TrackingIssueDto> ChangeStatusAsync(Guid id, IssueStatus newStatus);
+        Task ReorderAsync(IssueReorderInput input);
+        Task AssignAsync(Guid id, Guid userId);
+        Task UnassignAsync(Guid id);
+
     }
+
 }

@@ -1,0 +1,949 @@
+﻿@page "/project-tracking"
+
+@using Microsoft.AspNetCore.Components.Web
+@using Volo.Abp.Application.Dtos
+@using Altinay.ProjectTracking.IAppServices
+@using Altinay.ProjectTracking.ProjectTrackingDtos
+@using Altinay.Domain.ProjectTracking
+@using Altinay.Blazor.Components
+
+@inject ITrackingIssueAppService IssueApp
+@inject ITrackingProjectAppService ProjectApp
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Project Tracking</PageTitle>
+
+<!-- Üst şerit -->
+<div class="board-header mb-4">
+	<div class="d-flex align-items-center justify-content-between">
+		<div class="d-flex align-items-center">
+			<h4 class="fw-bold mb-0 me-4">Board</h4>
+
+			<div class="search-container me-3">
+				<div class="search-input-wrapper">
+					<i class="fas fa-search search-icon"></i>
+					<input class="search-input"
+						   placeholder="Search tasks..."
+						   value="@_searchFilter"
+						   @oninput="OnSearchChanged" />
+				</div>
+			</div>
+		</div>
+
+		<div class="d-flex align-items-center">
+			<!-- Project Filter -->
+			<div class="filter-group me-3">
+				<label class="filter-label">Project</label>
+				<select class="filter-select" @onchange="OnProjectChanged">
+					<option value="">All Projects</option>
+					@foreach (var project in _projects)
+					{
+						<option value="@project.Id" selected="@(project.Id == _selectedProjectId)">@project.Name</option>
+					}
+				</select>
+			</div>
+
+			<!-- Group By Filter -->
+			<div class="filter-group me-3">
+				<label class="filter-label">Group By</label>
+				<select class="filter-select" @onchange="OnGroupByChanged">
+					<option value="status" selected="@(_groupBy == "status")">Status</option>
+					<option value="priority" selected="@(_groupBy == "priority")">Priority</option>
+					<option value="project" selected="@(_groupBy == "project")">Project</option>
+					<option value="assignee" selected="@(_groupBy == "assignee")">Assignee</option>
+				</select>
+			</div>
+
+			<!-- New Issue Button -->
+			<button class="btn btn-primary btn-sm" @onclick="OpenNewIssueAsync">
+				<i class="fas fa-plus me-1"></i>
+				New Issue
+			</button>
+		</div>
+	</div>
+
+</div>
+
+<!-- Board -->
+<div class="kanban-board">
+	<div class="kanban-container">
+
+		<!-- TO DO -->
+		<div class="kanban-column">
+			<div class="column-header">
+				<div class="column-title">
+					<span class="fw-bold">@GetColumnTitle(0)</span>
+					<span class="badge bg-light text-dark ms-2">@(todo?.Count ?? 0)</span>
+				</div>
+			</div>
+
+			<div class="column-content @(GetDragOverClass(IssueStatus.ToDo))"
+				 @ondragover:preventDefault
+				 @ondragenter="() => _dragOverColumn = IssueStatus.ToDo"
+				 @ondragleave="() => _dragOverColumn = null"
+				 @ondrop="@(() => OnDropLocal("ToDo"))">
+				@if (todo is null)
+				{
+					<div class="text-muted small">Loading...</div>
+				}
+				else if (!todo.Any())
+				{
+					<div class="empty-column">
+						<span class="text-muted">No tasks</span>
+					</div>
+				}
+				else
+				{
+					@foreach (var i in todo)
+					{
+						<IssueCard Issue="i"
+								   OnClick="() => OpenDetailModalAsync(i)"
+								   OnDragStart="HandleCardDragStart"
+								   OnStatusChange="(status) => ChangeIssueStatus(i.Id, status)"
+								   OnDelete="DeleteIssue" />
+					}
+				}
+			</div>
+		</div>
+
+		<!-- IN PROGRESS -->
+		<div class="kanban-column">
+			<div class="column-header">
+				<div class="column-title">
+					<span class="fw-bold">@GetColumnTitle(1)</span>
+					<span class="badge bg-light text-dark ms-2">@(inprogress?.Count ?? 0)</span>
+				</div>
+			</div>
+
+			<div class="column-content @(GetDragOverClass(IssueStatus.InProgress))"
+				 @ondragover:preventDefault
+				 @ondragenter="() => _dragOverColumn = IssueStatus.InProgress"
+				 @ondragleave="() => _dragOverColumn = null"
+				 @ondrop="@(() => OnDropLocal("InProgress"))">
+				@if (inprogress is null)
+				{
+					<div class="text-muted small">Loading...</div>
+				}
+				else if (!inprogress.Any())
+				{
+					<div class="empty-column">
+						<span class="text-muted">No tasks</span>
+					</div>
+				}
+				else
+				{
+					@foreach (var i in inprogress)
+					{
+						<IssueCard Issue="i"
+								   OnClick="() => OpenDetailModalAsync(i)"
+								   OnDragStart="HandleCardDragStart"
+								   OnStatusChange="(status) => ChangeIssueStatus(i.Id, status)"
+								   OnDelete="DeleteIssue" />
+					}
+				}
+			</div>
+		</div>
+
+		<!-- IN REVIEW -->
+		<div class="kanban-column">
+			<div class="column-header">
+				<div class="column-title">
+					<span class="fw-bold">@GetColumnTitle(2)</span>
+					<span class="badge bg-light text-dark ms-2">@(review?.Count ?? 0)</span>
+				</div>
+			</div>
+
+			<div class="column-content @(GetDragOverClass(IssueStatus.InReview))"
+				 @ondragover:preventDefault
+				 @ondragenter="() => _dragOverColumn = IssueStatus.InReview"
+				 @ondragleave="() => _dragOverColumn = null"
+				 @ondrop="@(() => OnDropLocal("InReview"))">
+				@if (review is null)
+				{
+					<div class="text-muted small">Loading...</div>
+				}
+				else if (!review.Any())
+				{
+					<div class="empty-column">
+						<span class="text-muted">No tasks</span>
+					</div>
+				}
+				else
+				{
+					@foreach (var i in review)
+					{
+						<IssueCard Issue="i"
+								   OnClick="() => OpenDetailModalAsync(i)"
+								   OnDragStart="HandleCardDragStart"
+								   OnStatusChange="(status) => ChangeIssueStatus(i.Id, status)"
+								   OnDelete="DeleteIssue" />
+					}
+				}
+			</div>
+		</div>
+
+		<!-- DONE -->
+		<div class="kanban-column">
+			<div class="column-header">
+				<div class="column-title">
+					<span class="fw-bold">@GetColumnTitle(3)</span>
+					<span class="badge bg-light text-dark ms-2">@(done?.Count ?? 0)</span>
+				</div>
+			</div>
+
+			<div class="column-content @(GetDragOverClass(IssueStatus.Done))"
+				 @ondragover:preventDefault
+				 @ondragenter="() => _dragOverColumn = IssueStatus.Done"
+				 @ondragleave="() => _dragOverColumn = null"
+				 @ondrop="@(() => OnDropLocal("Done"))">
+				@if (done is null)
+				{
+					<div class="text-muted small">Loading...</div>
+				}
+				else if (!done.Any())
+				{
+					<div class="empty-column">
+						<span class="text-muted">No tasks</span>
+					</div>
+				}
+				else
+				{
+					@foreach (var i in done)
+					{
+						<IssueCard Issue="i"
+								   OnClick="() => OpenDetailModalAsync(i)"
+								   OnDragStart="HandleCardDragStart"
+								   OnStatusChange="(status) => ChangeIssueStatus(i.Id, status)"
+								   OnDelete="DeleteIssue" />
+					}
+				}
+			</div>
+		</div>
+
+	</div>
+</div>
+
+<!-- Modals -->
+<IssueCreateModal @ref="_createModal" OnSaved="ReloadAsync" />
+<IssueDetailModal @ref="_detailModal" OnClose="CloseDetailModal" />
+
+<style>
+	.kanban-board {
+		overflow-x: auto;
+		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		min-height: 100vh;
+		padding: 20px 0;
+	}
+
+	.kanban-container {
+		display: flex;
+		gap: 20px;
+		min-width: max-content;
+		padding: 20px;
+		max-width: 100%;
+		margin: 0 auto;
+		overflow-x: auto;
+	}
+
+	.kanban-column {
+		min-width: 280px;
+		max-width: 320px;
+		flex: 1;
+		background: rgba(255, 255, 255, 0.95);
+		border-radius: 16px;
+		border: 1px solid rgba(255, 255, 255, 0.2);
+		backdrop-filter: blur(10px);
+		box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+		transition: all 0.3s ease;
+	}
+
+	.kanban-column:hover {
+		transform: translateY(-5px);
+		box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+	}
+
+	.column-header {
+		padding: 20px 24px;
+		border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+		background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+		border-radius: 16px 16px 0 0;
+		position: relative;
+	}
+
+	.column-header::after {
+		content: '';
+		position: absolute;
+		bottom: 0;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 60px;
+		height: 3px;
+		background: linear-gradient(90deg, #667eea, #764ba2);
+		border-radius: 2px;
+	}
+
+	.column-title {
+		font-size: 16px;
+		font-weight: 700;
+		color: #2c3e50;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+	}
+
+	.column-content {
+		padding: 20px;
+		min-height: 300px;
+		transition: all 0.3s ease;
+		position: relative;
+	}
+
+	.column-content.drag-over {
+		background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+		border: 2px dashed #667eea;
+		transform: scale(1.02);
+	}
+
+	.column-content.drag-over::before {
+		content: 'Drop here';
+		position: absolute;
+		top: 50%;
+		left: 50%;
+		transform: translate(-50%, -50%);
+		font-size: 18px;
+		font-weight: 600;
+		color: #667eea;
+		opacity: 0.8;
+		pointer-events: none;
+	}
+
+	.empty-column {
+		text-align: center;
+		padding: 40px 20px;
+		color: #6c757d;
+		font-style: italic;
+		opacity: 0.7;
+	}
+
+	.search-input {
+		width: 350px;
+		border-radius: 25px;
+		border: 2px solid rgba(255, 255, 255, 0.3);
+		background: rgba(255, 255, 255, 0.9);
+		backdrop-filter: blur(10px);
+		padding: 12px 20px;
+		transition: all 0.3s ease;
+	}
+
+	.search-input:focus {
+		outline: none;
+		border-color: #667eea;
+		box-shadow: 0 0 20px rgba(102, 126, 234, 0.3);
+		transform: scale(1.02);
+	}
+
+	.group-by-section {
+		display: flex;
+		align-items: center;
+		background: rgba(255, 255, 255, 0.9);
+		padding: 8px 16px;
+		border-radius: 20px;
+		backdrop-filter: blur(10px);
+	}
+
+	.group-by-select {
+		width: 150px;
+		border: none;
+		background: transparent;
+		font-weight: 500;
+	}
+
+	.sprint-info {
+		display: flex;
+		align-items: center;
+		font-size: 0.9rem;
+		background: rgba(255, 193, 7, 0.2);
+		padding: 8px 16px;
+		border-radius: 20px;
+		color: #856404;
+		font-weight: 600;
+	}
+
+	.project-selector select {
+		border-radius: 20px;
+		border: 2px solid rgba(255, 255, 255, 0.3);
+		background: rgba(255, 255, 255, 0.9);
+		backdrop-filter: blur(10px);
+		padding: 8px 16px;
+		font-weight: 500;
+		transition: all 0.3s ease;
+	}
+
+	.project-selector select:focus {
+		outline: none;
+		border-color: #667eea;
+		box-shadow: 0 0 15px rgba(102, 126, 234, 0.3);
+	}
+
+	/* Button Styles */
+	.btn {
+		border-radius: 25px;
+		font-weight: 600;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+		transition: all 0.3s ease;
+		position: relative;
+		overflow: hidden;
+	}
+
+	.btn::before {
+		content: '';
+		position: absolute;
+		top: 0;
+		left: -100%;
+		width: 100%;
+		height: 100%;
+		background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+		transition: left 0.5s;
+	}
+
+	.btn:hover::before {
+		left: 100%;
+	}
+
+	.btn-primary {
+		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		border: none;
+		box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+	}
+
+	.btn-primary:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 8px 25px rgba(102, 126, 234, 0.6);
+	}
+
+	.btn-success {
+		background: linear-gradient(135deg, #56ab2f 0%, #a8e6cf 100%);
+		border: none;
+		box-shadow: 0 4px 15px rgba(86, 171, 47, 0.4);
+	}
+
+	.btn-success:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 8px 25px rgba(86, 171, 47, 0.6);
+	}
+
+	.btn-light {
+		background: rgba(255, 255, 255, 0.9);
+		border: 2px solid rgba(255, 255, 255, 0.3);
+		backdrop-filter: blur(10px);
+		color: #2c3e50;
+	}
+
+	.btn-light:hover {
+		background: rgba(255, 255, 255, 1);
+		transform: translateY(-2px);
+		box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+	}
+
+	/* Responsive Design */
+	@@media (max-width: 1200px) {
+		.kanban-container {
+			padding: 15px;
+			gap: 15px;
+		}
+		
+		.kanban-column {
+			min-width: 260px;
+			max-width: 280px;
+		}
+	}
+
+	@@media (max-width: 992px) {
+		.kanban-container {
+			padding: 10px;
+			gap: 10px;
+		}
+		
+		.kanban-column {
+			min-width: 240px;
+			max-width: 260px;
+		}
+		
+		.search-input {
+			width: 250px;
+		}
+	}
+
+	@@media (max-width: 768px) {
+		.kanban-board {
+			padding: 10px 0;
+		}
+		
+		.kanban-container {
+			padding: 8px;
+			gap: 8px;
+		}
+		
+		.kanban-column {
+			min-width: 220px;
+			max-width: 240px;
+		}
+		
+		.column-header {
+			padding: 15px 18px;
+		}
+		
+		.column-content {
+			padding: 15px;
+		}
+		
+		.search-input {
+			width: 200px;
+			padding: 8px 15px;
+		}
+	}
+
+	@@media (max-width: 576px) {
+		.kanban-column {
+			min-width: 200px;
+			max-width: 220px;
+		}
+		
+		.column-title {
+			font-size: 14px;
+		}
+		
+		.search-input {
+			width: 150px;
+		}
+	}
+
+	/* Modern Header Styles */
+	.board-header {
+		background: white;
+		border-radius: 12px;
+		padding: 20px 24px;
+		box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+		border: 1px solid rgba(0, 0, 0, 0.05);
+		margin-bottom: 24px;
+	}
+
+	.search-container {
+		position: relative;
+	}
+
+	.search-input-wrapper {
+		position: relative;
+		display: flex;
+		align-items: center;
+	}
+
+	.search-icon {
+		position: absolute;
+		left: 12px;
+		color: #6c757d;
+		font-size: 14px;
+		z-index: 2;
+	}
+
+	.search-input {
+		padding: 10px 12px 10px 36px;
+		border: 2px solid #e1e5e9;
+		border-radius: 8px;
+		font-size: 14px;
+		width: 280px;
+		background: #f8f9fa;
+		transition: all 0.3s ease;
+	}
+
+	.search-input:focus {
+		outline: none;
+		border-color: #007bff;
+		background: white;
+		box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+	}
+
+	.filter-group {
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.filter-label {
+		font-size: 12px;
+		font-weight: 600;
+		color: #6c757d;
+		text-transform: uppercase;
+		letter-spacing: 0.5px;
+		margin: 0;
+	}
+
+	.filter-select {
+		padding: 8px 12px;
+		border: 2px solid #e1e5e9;
+		border-radius: 6px;
+		font-size: 14px;
+		background: white;
+		color: #2c3e50;
+		min-width: 120px;
+		transition: all 0.2s ease;
+	}
+
+	.filter-select:focus {
+		outline: none;
+		border-color: #007bff;
+		box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+	}
+
+	.btn-primary {
+		background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+		border: none;
+		border-radius: 8px;
+		padding: 10px 16px;
+		font-weight: 600;
+		transition: all 0.3s ease;
+		box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+	}
+
+	.btn-primary:hover {
+		background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+		transform: translateY(-1px);
+		box-shadow: 0 4px 16px rgba(0, 123, 255, 0.4);
+	}
+
+	.btn-primary:active {
+		transform: translateY(0);
+	}
+
+	/* Responsive Design */
+	@@media (max-width: 768px) {
+		.board-header {
+			padding: 16px;
+		}
+
+		.d-flex {
+			flex-direction: column;
+			gap: 16px;
+		}
+
+		.search-input {
+			width: 100%;
+		}
+
+		.filter-group {
+			width: 100%;
+		}
+
+		.filter-select {
+			width: 100%;
+		}
+	}
+</style>
+
+@code {
+	private List<TrackingIssueDto>? todo;
+	private List<TrackingIssueDto>? inprogress;
+	private List<TrackingIssueDto>? review;
+	private List<TrackingIssueDto>? done;
+
+	private string _searchFilter = string.Empty;
+	private string _groupBy = "status";
+	private IssueStatus? _dragOverColumn;
+	private Guid? _draggedIssueId;
+	private Guid? _selectedProjectId;
+	private List<TrackingProjectDto> _projects = new();
+
+	private IssueCreateModal? _createModal;
+	private IssueDetailModal? _detailModal;
+
+	protected override async Task OnInitializedAsync()
+	{
+		_currentInstance = this;
+		await LoadProjectsAsync();
+		await ReloadAsync();
+	}
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			await JSRuntime.InvokeVoidAsync("setupDragAndDrop");
+		}
+		else
+		{
+			await JSRuntime.InvokeVoidAsync("refreshDragAndDrop");
+		}
+	}
+
+	private async Task LoadProjectsAsync()
+	{
+		var result = await ProjectApp.GetListAsync(new PagedAndSortedResultRequestDto { MaxResultCount = 1000 });
+		_projects = result.Items.ToList();
+	}
+
+	private async Task ReloadAsync()
+	{
+		var input = new TrackingIssueSearchInput
+		{
+			MaxResultCount = 1000,
+			Sorting = "CreationTime desc",
+			ProjectId = _selectedProjectId
+		};
+
+		var result = await IssueApp.GetListAsync(input);
+		var filteredIssues = result.Items.AsEnumerable();
+
+		// Apply search filter
+		if (!string.IsNullOrEmpty(_searchFilter))
+		{
+			filteredIssues = filteredIssues.Where(x => 
+				x.Title.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase) ||
+				(x.Description != null && x.Description.Contains(_searchFilter, StringComparison.OrdinalIgnoreCase))
+			);
+		}
+
+		// Apply grouping
+		if (_groupBy == "status")
+		{
+			todo = filteredIssues.Where(x => x.Status == IssueStatus.ToDo).ToList();
+			inprogress = filteredIssues.Where(x => x.Status == IssueStatus.InProgress).ToList();
+			review = filteredIssues.Where(x => x.Status == IssueStatus.InReview).ToList();
+			done = filteredIssues.Where(x => x.Status == IssueStatus.Done).ToList();
+		}
+		else if (_groupBy == "priority")
+		{
+			todo = filteredIssues.Where(x => x.Priority == IssuePriority.Critical).ToList();
+			inprogress = filteredIssues.Where(x => x.Priority == IssuePriority.High).ToList();
+			review = filteredIssues.Where(x => x.Priority == IssuePriority.Medium).ToList();
+			done = filteredIssues.Where(x => x.Priority == IssuePriority.Low).ToList();
+		}
+		else if (_groupBy == "project")
+		{
+			// Group by project - show all issues in first column
+			todo = filteredIssues.ToList();
+			inprogress = new List<TrackingIssueDto>();
+			review = new List<TrackingIssueDto>();
+			done = new List<TrackingIssueDto>();
+		}
+		else if (_groupBy == "assignee")
+		{
+			// Group by assignee - Unassigned vs Assigned
+			todo = filteredIssues.Where(x => !x.AssigneeUserId.HasValue).ToList();
+			inprogress = filteredIssues.Where(x => x.AssigneeUserId.HasValue).ToList();
+			review = new List<TrackingIssueDto>();
+			done = new List<TrackingIssueDto>();
+		}
+		else
+		{
+			// Default status grouping
+			todo = filteredIssues.Where(x => x.Status == IssueStatus.ToDo).ToList();
+			inprogress = filteredIssues.Where(x => x.Status == IssueStatus.InProgress).ToList();
+			review = filteredIssues.Where(x => x.Status == IssueStatus.InReview).ToList();
+			done = filteredIssues.Where(x => x.Status == IssueStatus.Done).ToList();
+		}
+
+		StateHasChanged();
+	}
+
+	private async Task OnProjectChanged(ChangeEventArgs e)
+	{
+		_selectedProjectId = string.IsNullOrEmpty(e.Value?.ToString()) ? null : Guid.Parse(e.Value.ToString()!);
+		await ReloadAsync();
+	}
+
+	private async Task OnDragStart(Guid issueId)
+	{
+		_draggedIssueId = issueId;
+		await JSRuntime.InvokeVoidAsync("setDraggedIssue", issueId.ToString());
+	}
+
+	private async Task OnDragOver(IssueStatus status)
+	{
+		_dragOverColumn = status;
+		StateHasChanged();
+	}
+
+	private async Task OnDragLeave()
+	{
+		_dragOverColumn = null;
+		StateHasChanged();
+	}
+
+	private async Task OnDrop(IssueStatus newStatus)
+	{
+		if (_draggedIssueId.HasValue)
+		{
+			try
+			{
+				await IssueApp.ChangeStatusAsync(_draggedIssueId.Value, newStatus);
+				await ReloadAsync();
+			}
+			catch (Exception ex)
+			{
+				// Handle error
+				Console.WriteLine($"Error updating status: {ex.Message}");
+			}
+		}
+
+		_draggedIssueId = null;
+		_dragOverColumn = null;
+		StateHasChanged();
+	}
+
+	private async Task OnSearchChanged(ChangeEventArgs e)
+	{
+		_searchFilter = e?.Value?.ToString() ?? string.Empty;
+		await ReloadAsync();
+	}
+
+	private async Task OnGroupByChanged(ChangeEventArgs e)
+	{
+		_groupBy = e?.Value?.ToString() ?? "status";
+		await ReloadAsync();
+	}
+
+	private void HandleCardDragStart(Guid issueId)
+	{
+		_draggedIssueId = issueId;
+	}
+
+
+	[JSInvokable]
+	public static async Task OnDropLocal(string newStatus)
+	{
+		// Get the current component instance
+		var component = GetCurrentComponent();
+		if (component != null)
+		{
+			await component.OnDropLocalInstance(newStatus);
+		}
+	}
+
+	public async Task OnDropLocalInstance(string newStatus)
+	{
+		if (_draggedIssueId.HasValue && Enum.TryParse<IssueStatus>(newStatus, out var status))
+		{
+			try
+			{
+				await IssueApp.ChangeStatusAsync(_draggedIssueId.Value, status);
+				await ReloadAsync();
+			}
+			catch (Exception ex)
+			{
+				Console.WriteLine($"Error updating status: {ex.Message}");
+			}
+		}
+
+		_draggedIssueId = null;
+		_dragOverColumn = null;
+		StateHasChanged();
+	}
+
+	private static ProjectTracking? _currentInstance;
+	private static ProjectTracking? GetCurrentComponent()
+	{
+		return _currentInstance;
+	}
+
+	private string GetDragOverClass(IssueStatus status)
+	{
+		return _dragOverColumn == status ? "drag-over" : string.Empty;
+	}
+
+	private async Task OpenNewIssueAsync()
+	{
+		if (_createModal != null)
+		{
+			await _createModal.ShowAsync();
+		}
+	}
+
+	private async Task OpenDetailModalAsync(TrackingIssueDto issue)
+	{
+		Console.WriteLine($"Opening modal for issue: {issue.Title}");
+		if (_detailModal != null)
+		{
+			Console.WriteLine("Modal reference found, calling ShowAsync");
+			await _detailModal.ShowAsync(issue);
+		}
+		else
+		{
+			Console.WriteLine("Modal reference is null!");
+		}
+	}
+
+	private async Task CloseDetailModal()
+	{
+		if (_detailModal != null)
+		{
+			await _detailModal.HideAsync();
+		}
+	}
+
+
+	private async Task ChangeIssueStatus(Guid issueId, IssueStatus newStatus)
+	{
+		try
+		{
+			await IssueApp.ChangeStatusAsync(issueId, newStatus);
+			await ReloadAsync();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error changing status: {ex.Message}");
+		}
+	}
+
+	private string GetColumnTitle(int columnIndex)
+	{
+		return _groupBy switch
+		{
+			"status" => columnIndex switch
+			{
+				0 => "TO DO",
+				1 => "IN PROGRESS",
+				2 => "IN REVIEW",
+				3 => "DONE",
+				_ => "UNKNOWN"
+			},
+			"priority" => columnIndex switch
+			{
+				0 => "CRITICAL",
+				1 => "HIGH",
+				2 => "MEDIUM",
+				3 => "LOW",
+				_ => "UNKNOWN"
+			},
+			"project" => columnIndex switch
+			{
+				0 => "ALL PROJECTS",
+				1 => "",
+				2 => "",
+				3 => "",
+				_ => "UNKNOWN"
+			},
+			"assignee" => columnIndex switch
+			{
+				0 => "UNASSIGNED",
+				1 => "ASSIGNED",
+				2 => "",
+				3 => "",
+				_ => "UNKNOWN"
+			},
+			_ => "UNKNOWN"
+		};
+	}
+
+	private async Task DeleteIssue(Guid issueId)
+	{
+		try
+		{
+			await IssueApp.DeleteAsync(issueId);
+			await ReloadAsync();
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Error deleting issue: {ex.Message}");
+		}
+	}
+}

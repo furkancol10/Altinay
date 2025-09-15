@@ -11,5 +11,7 @@ public class AltinayMenus
     public const string Project = Prefix + ".Project";
     public const string ProjectGroup = Prefix + ".ProjectGroups";
     public const string File = Prefix + ".File";
+    public const string ProjectTracking = Prefix + ".ProjectTracking";
+
 }
 

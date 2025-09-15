@@ -1,0 +1,456 @@
+﻿
+@using Blazorise
+@using Volo.Abp.Application.Dtos
+@using Altinay.ProjectTracking.IAppServices
+@using Altinay.ProjectTracking.ProjectTrackingDtos
+@using Altinay.ProjectTracking.CreateUpdateDtos
+@using Altinay.Domain.ProjectTracking
+@using Volo.Abp.Identity
+
+@inject ITrackingIssueAppService IssueApp
+@inject ITrackingProjectAppService ProjectApp
+@inject IIdentityUserAppService UserApp
+
+<!-- JIRA-STYLE NEW ISSUE MODAL -->
+<div class="jira-modal-overlay @(_visible ? "show" : "")" @onclick="HideAsync">
+	<div class="jira-modal new-issue-modal" @onclick:stopPropagation="true">
+		<!-- Header -->
+		<div class="jira-modal-header">
+			<div class="jira-header-left">
+				<h2>@(_isEdit ? "Edit Issue" : "New Issue")</h2>
+			</div>
+			<div class="jira-header-right">
+				<button class="jira-close-btn" @onclick="HideAsync">
+					<i class="fas fa-times"></i>
+				</button>
+			</div>
+		</div>
+
+		<!-- Content -->
+		<div class="jira-modal-content">
+			<Validations @ref="_validations" Mode="ValidationMode.Auto" ValidateOnLoad="false" Model="@Input">
+				<div class="jira-form-grid">
+					<!-- Project Selection -->
+					<div class="jira-form-group">
+						<label class="jira-label required">Project</label>
+						<select class="jira-select" @onchange="OnProjectChanged">
+							<option value="">Select Project</option>
+							@foreach (var p in _projects)
+							{
+								<option value="@p.Id" selected="@(Input.ProjectId == p.Id)">@p.Name</option>
+							}
+						</select>
+						<ValidationError />
+					</div>
+
+					<!-- Title -->
+					<div class="jira-form-group">
+						<label class="jira-label required">Title</label>
+						<input type="text" class="jira-input" @bind="Input.Title" placeholder="e.g. Login bug" />
+						<ValidationError />
+					</div>
+
+					<!-- Priority -->
+					<div class="jira-form-group">
+						<label class="jira-label">Priority</label>
+						<select class="jira-select" @bind="Input.Priority">
+							@foreach (var p in Enum.GetValues<IssuePriority>())
+							{
+								<option value="@p">@p</option>
+							}
+						</select>
+					</div>
+
+					<!-- Assignee -->
+					<div class="jira-form-group">
+						<label class="jira-label">Assignee</label>
+						<select class="jira-select" @bind="Input.AssigneeUserId">
+							<option value="">Unassigned</option>
+							@foreach (var user in _users)
+							{
+								<option value="@user.Id">@user.UserName</option>
+							}
+						</select>
+					</div>
+
+					<!-- Status -->
+					<div class="jira-form-group">
+						<label class="jira-label">Status</label>
+						<select class="jira-select" @bind="Input.Status">
+							@foreach (var s in Enum.GetValues<IssueStatus>())
+							{
+								<option value="@s">@s</option>
+							}
+						</select>
+					</div>
+
+
+					<!-- Started Time -->
+					<div class="jira-form-group">
+						<label class="jira-label">Started Time</label>
+						<input type="datetime-local" class="jira-input" @bind="Input.StartedTime" />
+					</div>
+
+					<!-- Done Time -->
+					<div class="jira-form-group">
+						<label class="jira-label">Done Time</label>
+						<input type="datetime-local" class="jira-input" @bind="Input.DoneTime" />
+					</div>
+
+					<!-- Description -->
+					<div class="jira-form-group full-width">
+						<label class="jira-label">Description</label>
+						<textarea class="jira-textarea" @bind="Input.Description" rows="4" placeholder="Describe the issue..."></textarea>
+					</div>
+				</div>
+			</Validations>
+		</div>
+
+		<!-- Footer -->
+		<div class="jira-modal-footer">
+			<div class="jira-footer-buttons">
+				<button class="jira-btn jira-btn-secondary" @onclick="HideAsync">Cancel</button>
+				<button class="jira-btn jira-btn-primary" @onclick="SaveAsync">
+					<i class="fas fa-save"></i>
+					Save
+				</button>
+			</div>
+		</div>
+	</div>
+</div>
+
+@code {
+	private Modal? _modalRef;
+	private Validations? _validations;
+	private bool _visible;
+	private bool _isEdit;
+	private CreateUpdateTrackingIssueDto Input = new();
+	private List<TrackingProjectDto> _projects = new();
+	private List<IdentityUserDto> _users = new();
+
+	[Parameter] public EventCallback OnSaved { get; set; }
+
+	protected override async Task OnInitializedAsync()
+	{
+		await LoadProjectsAsync();
+		await LoadUsersAsync();
+		Input.Status = IssueStatus.ToDo; // Yeni issue varsayılan olarak TO DO'ya gelsin
+	}
+
+	private async Task LoadProjectsAsync()
+	{
+		var result = await ProjectApp.GetListAsync(new PagedAndSortedResultRequestDto { MaxResultCount = 1000 });
+		_projects = result.Items.ToList();
+	}
+
+	private async Task LoadUsersAsync()
+	{
+		var result = await UserApp.GetListAsync(new GetIdentityUsersInput { MaxResultCount = 1000 });
+		_users = result.Items.ToList();
+	}
+
+	private void OnProjectChanged(ChangeEventArgs e)
+	{
+		if (Guid.TryParse(e.Value?.ToString(), out var projectId))
+		{
+			Input.ProjectId = projectId;
+		}
+	}
+
+	public async Task ShowAsync()
+	{
+		_isEdit = false;
+		Input = new CreateUpdateTrackingIssueDto { Status = IssueStatus.ToDo };
+		_visible = true;
+		StateHasChanged();
+	}
+
+	public async Task ShowAsync(TrackingIssueDto issue)
+	{
+		_isEdit = true;
+		Input = new CreateUpdateTrackingIssueDto
+		{
+			Id = issue.Id,
+			ProjectId = issue.ProjectId,
+			Title = issue.Title,
+			Description = issue.Description,
+			Priority = issue.Priority,
+			DueDate = issue.DueDate,
+			Status = issue.Status,
+			AssigneeUserId = issue.AssigneeUserId,
+			Order = issue.Order
+		};
+		_visible = true;
+		StateHasChanged();
+	}
+
+	public async Task HideAsync()
+	{
+		_visible = false;
+		StateHasChanged();
+	}
+
+	private async Task SaveAsync()
+	{
+		if (await _validations!.ValidateAll())
+		{
+			if (_isEdit)
+			{
+				await IssueApp.UpdateAsync(Input.Id, Input);
+			}
+			else
+			{
+				await IssueApp.CreateAsync(Input);
+			}
+
+			await OnSaved.InvokeAsync();
+			await HideAsync();
+		}
+	}
+}
+
+<style>
+	/* JIRA-STYLE NEW ISSUE MODAL */
+	.jira-modal-overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background: rgba(0, 0, 0, 0.5);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		z-index: 1000;
+		opacity: 0;
+		visibility: hidden;
+		transition: all 0.3s ease;
+	}
+
+	.jira-modal-overlay.show {
+		opacity: 1;
+		visibility: visible;
+	}
+
+	.new-issue-modal {
+		background: white;
+		border-radius: 12px;
+		box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+		max-width: 600px;
+		width: 90%;
+		max-height: 90vh;
+		overflow: hidden;
+		transform: scale(0.9);
+		transition: transform 0.3s ease;
+	}
+
+	.jira-modal-overlay.show .new-issue-modal {
+		transform: scale(1);
+	}
+
+	.jira-modal-header {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 20px 24px;
+		border-bottom: 1px solid #e1e5e9;
+		background: #f8f9fa;
+	}
+
+	.jira-header-left h2 {
+		margin: 0;
+		font-size: 20px;
+		font-weight: 600;
+		color: #2c3e50;
+	}
+
+	.jira-close-btn {
+		background: none;
+		border: none;
+		color: #6c757d;
+		font-size: 18px;
+		cursor: pointer;
+		padding: 8px;
+		border-radius: 6px;
+		transition: all 0.2s ease;
+	}
+
+	.jira-close-btn:hover {
+		background: #e9ecef;
+		color: #495057;
+	}
+
+	.jira-modal-content {
+		padding: 24px;
+		max-height: 60vh;
+		overflow-y: auto;
+	}
+
+	.jira-form-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 20px;
+		align-items: start;
+	}
+
+	.jira-form-group {
+		display: flex;
+		flex-direction: column;
+		gap: 8px;
+	}
+
+	.jira-form-group.full-width {
+		grid-column: 1 / -1;
+	}
+
+	.jira-label {
+		font-weight: 600;
+		color: #2c3e50;
+		font-size: 14px;
+		margin-bottom: 4px;
+	}
+
+	.jira-label.required::after {
+		content: " *";
+		color: #dc3545;
+	}
+
+	.jira-input,
+	.jira-select,
+	.jira-textarea {
+		padding: 12px 16px;
+		border: 2px solid #e1e5e9;
+		border-radius: 8px;
+		font-size: 14px;
+		transition: all 0.2s ease;
+		background: white;
+		color: #2c3e50;
+	}
+
+	.jira-input:focus,
+	.jira-select:focus,
+	.jira-textarea:focus {
+		outline: none;
+		border-color: #007bff;
+		box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+	}
+
+	.jira-input::placeholder,
+	.jira-textarea::placeholder {
+		color: #6c757d;
+	}
+
+	.jira-textarea {
+		resize: vertical;
+		min-height: 100px;
+		font-family: inherit;
+	}
+
+	.jira-select {
+		cursor: pointer;
+		background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e");
+		background-position: right 12px center;
+		background-repeat: no-repeat;
+		background-size: 16px;
+		padding-right: 40px;
+	}
+
+	.jira-modal-footer {
+		padding: 20px 24px;
+		border-top: 1px solid #e1e5e9;
+		background: #f8f9fa;
+	}
+
+	.jira-footer-buttons {
+		display: flex;
+		gap: 12px;
+		justify-content: flex-end;
+	}
+
+	.jira-btn {
+		padding: 12px 24px;
+		border: none;
+		border-radius: 8px;
+		font-size: 14px;
+		font-weight: 600;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		min-width: 100px;
+		justify-content: center;
+	}
+
+	.jira-btn-secondary {
+		background: #6c757d;
+		color: white;
+	}
+
+	.jira-btn-secondary:hover {
+		background: #5a6268;
+		transform: translateY(-1px);
+		box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+	}
+
+	.jira-btn-primary {
+		background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+		color: white;
+		box-shadow: 0 2px 8px rgba(0, 123, 255, 0.3);
+	}
+
+	.jira-btn-primary:hover {
+		background: linear-gradient(135deg, #0056b3 0%, #004085 100%);
+		transform: translateY(-1px);
+		box-shadow: 0 4px 16px rgba(0, 123, 255, 0.4);
+	}
+
+	.jira-btn-primary:active {
+		transform: translateY(0);
+	}
+
+	/* Responsive Design */
+	@@media (max-width: 768px) {
+		.jira-form-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.new-issue-modal {
+			width: 95%;
+			margin: 20px;
+		}
+
+		.jira-modal-content {
+			padding: 20px;
+		}
+
+		.jira-footer-buttons {
+			flex-direction: column;
+		}
+
+		.jira-btn {
+			width: 100%;
+		}
+	}
+
+	/* Animation for form elements */
+	.jira-form-group {
+		animation: slideInUp 0.3s ease forwards;
+		opacity: 0;
+		transform: translateY(20px);
+	}
+
+	.jira-form-group:nth-child(1) { animation-delay: 0.1s; }
+	.jira-form-group:nth-child(2) { animation-delay: 0.2s; }
+	.jira-form-group:nth-child(3) { animation-delay: 0.3s; }
+	.jira-form-group:nth-child(4) { animation-delay: 0.4s; }
+	.jira-form-group:nth-child(5) { animation-delay: 0.5s; }
+	.jira-form-group:nth-child(6) { animation-delay: 0.6s; }
+
+	@@keyframes slideInUp {
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+</style>
