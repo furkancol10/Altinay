@@ -4,6 +4,9 @@
 
 <div class="issue-card mb-3"
      data-issue-id="@Issue.Id"
+     draggable="true"
+     @ondragstart="HandleDragStart"
+     @ondragend="HandleDragEnd"
      @onclick="HandleClick">
     
     <!-- Priority Indicator -->
@@ -13,8 +16,6 @@
         <!-- Drag Handle -->
         <span class="drag-handle"
               title="Drag to move"
-              draggable="true"
-              @onmousedown="() => OnDragStart.InvokeAsync(Issue.Id)"
               @onclick:stopPropagation>
             <i class="fas fa-grip-vertical"></i>
         </span>
@@ -410,5 +411,17 @@
     {
         Console.WriteLine($"IssueCard clicked: {Issue.Title}");
         await OnClick.InvokeAsync();
+    }
+
+    private async Task HandleDragStart(DragEventArgs e)
+    {
+        Console.WriteLine($"Drag started for issue: {Issue.Title}");
+        await OnDragStart.InvokeAsync(Issue.Id);
+    }
+
+    private async Task HandleDragEnd(DragEventArgs e)
+    {
+        Console.WriteLine($"Drag ended for issue: {Issue.Title}");
+        // Drag end işlemi burada yapılabilir
     }
 }

@@ -98,7 +98,7 @@
 					{
 						<IssueCard Issue="i"
 								   OnClick="() => OpenDetailModalAsync(i)"
-								   OnDragStart="HandleCardDragStart"
+								   OnDragStart="OnDragStart"
 								   OnStatusChange="(status) => ChangeIssueStatus(i.Id, status)"
 								   OnDelete="DeleteIssue" />
 					}
@@ -136,7 +136,7 @@
 					{
 						<IssueCard Issue="i"
 								   OnClick="() => OpenDetailModalAsync(i)"
-								   OnDragStart="HandleCardDragStart"
+								   OnDragStart="OnDragStart"
 								   OnStatusChange="(status) => ChangeIssueStatus(i.Id, status)"
 								   OnDelete="DeleteIssue" />
 					}
@@ -174,7 +174,7 @@
 					{
 						<IssueCard Issue="i"
 								   OnClick="() => OpenDetailModalAsync(i)"
-								   OnDragStart="HandleCardDragStart"
+								   OnDragStart="OnDragStart"
 								   OnStatusChange="(status) => ChangeIssueStatus(i.Id, status)"
 								   OnDelete="DeleteIssue" />
 					}
@@ -212,7 +212,7 @@
 					{
 						<IssueCard Issue="i"
 								   OnClick="() => OpenDetailModalAsync(i)"
-								   OnDragStart="HandleCardDragStart"
+								   OnDragStart="OnDragStart"
 								   OnStatusChange="(status) => ChangeIssueStatus(i.Id, status)"
 								   OnDelete="DeleteIssue" />
 					}
@@ -445,6 +445,28 @@
 		box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
 	}
 
+	/* Drag and Drop Effects - Optimized */
+	.column-content.drag-over {
+		background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+		border: 2px dashed #667eea;
+		border-radius: 12px;
+		transform: scale(1.02);
+		transition: transform 0.2s ease, background 0.2s ease; /* Faster transitions */
+	}
+
+	.issue-card.dragging {
+		opacity: 0.7; /* Less opacity for better performance */
+		transform: rotate(3deg) scale(1.03); /* Smaller transform */
+		box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2); /* Lighter shadow */
+		z-index: 1000;
+		transition: transform 0.15s ease, opacity 0.15s ease; /* Faster transitions */
+	}
+
+	.issue-card.drag-over {
+		border: 2px solid #667eea;
+		background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+	}
+
 	/* Responsive Design */
 	@@media (max-width: 1200px) {
 		.kanban-container {
@@ -652,6 +674,7 @@
 	private Guid? _draggedIssueId;
 	private Guid? _selectedProjectId;
 	private List<TrackingProjectDto> _projects = new();
+	private bool _isProcessing = false;
 
 	private IssueCreateModal? _createModal;
 	private IssueDetailModal? _detailModal;
@@ -661,18 +684,6 @@
 		_currentInstance = this;
 		await LoadProjectsAsync();
 		await ReloadAsync();
-	}
-
-	protected override async Task OnAfterRenderAsync(bool firstRender)
-	{
-		if (firstRender)
-		{
-			await JSRuntime.InvokeVoidAsync("setupDragAndDrop");
-		}
-		else
-		{
-			await JSRuntime.InvokeVoidAsync("refreshDragAndDrop");
-		}
 	}
 
 	private async Task LoadProjectsAsync()
@@ -821,16 +832,25 @@
 
 	public async Task OnDropLocalInstance(string newStatus)
 	{
+		if (_isProcessing) return; // Prevent multiple simultaneous operations
+		
 		if (_draggedIssueId.HasValue && Enum.TryParse<IssueStatus>(newStatus, out var status))
 		{
+			_isProcessing = true;
 			try
 			{
+				Console.WriteLine($"Processing drop: {_draggedIssueId.Value} -> {status}");
 				await IssueApp.ChangeStatusAsync(_draggedIssueId.Value, status);
 				await ReloadAsync();
+				Console.WriteLine("Drop operation completed successfully");
 			}
 			catch (Exception ex)
 			{
 				Console.WriteLine($"Error updating status: {ex.Message}");
+			}
+			finally
+			{
+				_isProcessing = false;
 			}
 		}
 
@@ -944,6 +964,18 @@
 		catch (Exception ex)
 		{
 			Console.WriteLine($"Error deleting issue: {ex.Message}");
+		}
+	}
+
+	protected override async Task OnAfterRenderAsync(bool firstRender)
+	{
+		if (firstRender)
+		{
+			await JSRuntime.InvokeVoidAsync("setupDragAndDrop");
+		}
+		else
+		{
+			await JSRuntime.InvokeVoidAsync("refreshDragAndDrop");
 		}
 	}
 }

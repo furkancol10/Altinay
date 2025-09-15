@@ -99,6 +99,10 @@ public class AltinayDbContext :
     //Project Tracking Members
     public DbSet<TrackingProjectMember> TrackingProjectMembers { get; set; }
 
+    //Smart Notifications
+    public DbSet<SmartNotification> SmartNotifications { get; set; }
+    public DbSet<NotificationSetting> NotificationSettings { get; set; }
+
 
 
 
@@ -459,6 +463,49 @@ public class AltinayDbContext :
              .HasForeignKey(x => x.IssueId)
              .OnDelete(DeleteBehavior.Cascade);
 
+            b.HasOne<IdentityUser>()
+             .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        //SMART NOTIFICATION
+        builder.Entity<SmartNotification>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "SmartNotification", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            b.Property(x => x.NotificationType).IsRequired().HasMaxLength(50);
+            b.Property(x => x.Title).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Message).IsRequired().HasMaxLength(1000);
+
+            // Indexes
+            b.HasIndex(x => x.UserId);
+            b.HasIndex(x => x.NotificationType);
+            b.HasIndex(x => x.IsSent);
+            b.HasIndex(x => x.IsRead);
+            b.HasIndex(x => x.SentAt);
+
+            // Relationships
+            b.HasOne<IdentityUser>()
+             .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        //NOTIFICATION SETTING
+        builder.Entity<NotificationSetting>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "NotificationSetting", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            b.Property(x => x.WorkStartTime).IsRequired().HasMaxLength(10);
+            b.Property(x => x.WorkEndTime).IsRequired().HasMaxLength(10);
+
+            // Indexes
+            b.HasIndex(x => x.UserId).IsUnique();
+
+            // Relationships
             b.HasOne<IdentityUser>()
              .WithMany()
              .HasForeignKey(x => x.UserId)
