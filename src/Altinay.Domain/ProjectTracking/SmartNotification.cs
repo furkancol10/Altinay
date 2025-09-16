@@ -13,16 +13,17 @@ namespace Altinay.Domain.ProjectTracking
         public bool IsRead { get; set; }
         public DateTime? SentAt { get; set; }
         public DateTime? ReadAt { get; set; }
+        public DateTime? ScheduledFor { get; set; }
 
         public SmartNotification() { }
 
-        public SmartNotification(Guid id, Guid userId, string notificationType, string title, string message)
-            : base(id)
+        public SmartNotification(Guid userId, string notificationType, string title, string message, DateTime? scheduledFor = null)
         {
             UserId = userId;
             NotificationType = notificationType;
             Title = title;
             Message = message;
+            ScheduledFor = scheduledFor;
             IsSent = false;
             IsRead = false;
             SentAt = null;

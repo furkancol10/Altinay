@@ -19,5 +19,12 @@ namespace Altinay.Domain.ProjectTracking
         public int Order { get; set; }            // sütun sırası
         public DateTime? StartedTime { get; set; }
         public DateTime? DoneTime { get; set; }   // Done olduğu an
+        
+        // Gantt Chart için yeni alanlar
+        public DateTime? StartDate { get; set; }      // Görev başlangıç tarihi
+        public int Progress { get; set; } = 0;       // Tamamlanma yüzdesi (0-100)
+        public int EstimatedDays { get; set; } = 7;  // Tahmini süre (gün)
+        public Guid? ParentTaskId { get; set; }      // Ana görev (alt görevler için)
+        public string? Dependencies { get; set; }    // Bağımlılıklar (JSON string olarak)
     }
 }

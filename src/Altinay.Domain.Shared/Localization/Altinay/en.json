@@ -103,7 +103,9 @@
         "Permission:Update": "Update",
         "Permission:Delete": "Delete",
         "Permission:ManageProjects": "Manage Projects",
-        "Permission:ManageIssues": "Manage Issues"
+        "Permission:ManageIssues": "Manage Issues",
+
+        // Bildirim sistemi
 
     }
 }

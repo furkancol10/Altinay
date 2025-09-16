@@ -304,6 +304,7 @@
 @code {
     [Parameter] public TrackingIssueDto? Issue { get; set; }
     [Parameter] public EventCallback OnClose { get; set; }
+    [CascadingParameter] public ProjectTracking? ParentComponent { get; set; }
 
 	private TrackingIssueDto? _issue;
     private List<TrackingCommentDto> _comments = new();
@@ -367,6 +368,31 @@
                 
                 await CommentApp.CreateCommentAsync(createCommentDto);
                 await LoadCommentsAsync();
+                
+                // Yorum bildirimi gönder - localStorage'a kaydet ki tüm kullanıcılar görebilsin
+                var commenterName = CurrentUser.UserName ?? CurrentUser.Name ?? CurrentUser.Email?.Split('@')[0] ?? "Bilinmeyen Kullanıcı";
+                var commentPreview = newComment.Length > 50 ? newComment.Substring(0, 50) + "..." : newComment;
+                
+                // Bildirimi localStorage'a kaydet
+                var notification = new
+                {
+                    id = Guid.NewGuid().ToString(),
+                    title = "💬 Yeni Yorum!",
+                    message = $"{commenterName} '{_issue.Title}' görevine yorum ekledi: \"{commentPreview}\"",
+                    type = "comment",
+                    time = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss"),
+                    isRead = false
+                };
+                
+                await JSRuntime.InvokeVoidAsync("saveNotificationToStorage", notification);
+                
+                
+                // Eğer parent component varsa, ona da bildir
+                if (ParentComponent != null)
+                {
+                    await ParentComponent.ShowCommentNotification(_issue.Title, commenterName, commentPreview);
+                }
+                
                 newComment = string.Empty;
                 StateHasChanged();
             }

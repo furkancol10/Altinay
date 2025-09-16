@@ -65,6 +65,8 @@
     "Permission:Update": "Güncelle",
     "Permission:Delete": "Sil",
     "Permission:ManageProjects": "Projeleri Yönet",
-    "Permission:ManageIssues": "Görevleri Yönet"
+    "Permission:ManageIssues": "Görevleri Yönet",
+
+    // Bildirim sistemi
   }
 }

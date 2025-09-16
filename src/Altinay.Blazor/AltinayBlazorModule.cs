@@ -240,6 +240,7 @@ public class AltinayBlazorModule : AbpModule
         });
     }
 
+
     public override void OnApplicationInitialization(ApplicationInitializationContext context)
     {
         var env = context.GetEnvironment();

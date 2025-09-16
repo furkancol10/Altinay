@@ -6,10 +6,13 @@
 @using Altinay.ProjectTracking.ProjectTrackingDtos
 @using Altinay.Domain.ProjectTracking
 @using Altinay.Blazor.Components
+@using Volo.Abp.Users
+@using System.Threading
 
 @inject ITrackingIssueAppService IssueApp
 @inject ITrackingProjectAppService ProjectApp
 @inject IJSRuntime JSRuntime
+@inject ICurrentUser CurrentUser
 
 <PageTitle>Project Tracking</PageTitle>
 
@@ -18,6 +21,20 @@
 	<div class="d-flex align-items-center justify-content-between">
 		<div class="d-flex align-items-center">
 			<h4 class="fw-bold mb-0 me-4">Board</h4>
+			
+			<!-- Tab Navigation -->
+			<div class="view-tabs me-4">
+				<button class="tab-btn @(currentView == "kanban" ? "active" : "")" 
+						@onclick="@(() => SwitchView("kanban"))">
+					<i class="fas fa-columns me-2"></i>
+					Kanban Board
+				</button>
+				<button class="tab-btn @(currentView == "gantt" ? "active" : "")" 
+						@onclick="@(() => SwitchView("gantt"))">
+					<i class="fas fa-chart-gantt me-2"></i>
+					Gantt Chart
+				</button>
+			</div>
 
 			<div class="search-container me-3">
 				<div class="search-input-wrapper">
@@ -25,12 +42,22 @@
 					<input class="search-input"
 						   placeholder="Search tasks..."
 						   value="@_searchFilter"
-						   @oninput="OnSearchChanged" />
+				   @oninput="OnSearchChanged" />
 				</div>
 			</div>
 		</div>
 
 		<div class="d-flex align-items-center">
+			<!-- Bildirim Butonu -->
+			<button class="btn btn-outline-primary me-3" @onclick="ShowNotificationModal">
+				<i class="fas fa-bell me-2"></i>
+				Bildirimler
+				@if (_unreadNotificationCount > 0)
+				{
+					<span class="badge bg-danger ms-2">@_unreadNotificationCount</span>
+				}
+			</button>
+
 			<!-- Project Filter -->
 			<div class="filter-group me-3">
 				<label class="filter-label">Project</label>
@@ -64,8 +91,11 @@
 
 </div>
 
-<!-- Board -->
-<div class="kanban-board">
+<!-- Content Area -->
+@if (currentView == "kanban")
+{
+	<!-- Kanban Board -->
+	<div class="kanban-board">
 	<div class="kanban-container">
 
 		<!-- TO DO -->
@@ -221,11 +251,21 @@
 		</div>
 
 	</div>
-</div>
+	</div>
+}
+else if (currentView == "gantt")
+{
+        <!-- Gantt Chart -->
+        <div class="gantt-chart-container">
+            <GanttChart Issues="@GetAllIssues()" OnTaskSelected="@OnGanttTaskSelected" />
+        </div>
+}
 
 <!-- Modals -->
 <IssueCreateModal @ref="_createModal" OnSaved="ReloadAsync" />
-<IssueDetailModal @ref="_detailModal" OnClose="CloseDetailModal" />
+<CascadingValue Value="this">
+    <IssueDetailModal @ref="_detailModal" OnClose="CloseDetailModal" />
+</CascadingValue>
 
 <style>
 	.kanban-board {
@@ -314,7 +354,7 @@
 		color: #667eea;
 		opacity: 0.8;
 		pointer-events: none;
-	}
+		}
 
 	.empty-column {
 		text-align: center;
@@ -679,6 +719,16 @@
 	private IssueCreateModal? _createModal;
 	private IssueDetailModal? _detailModal;
 
+	// Bildirim sistemi değişkenleri
+	private List<NotificationItem> _notifications = new();
+	private int _unreadNotificationCount = 0;
+	private bool _showNotificationModal = false;
+	private bool _showQuickReminderModal = false;
+	private string _newReminderTitle = "";
+	private string _newReminderMessage = "";
+	private DateTime _newReminderTime = DateTime.Now.AddMinutes(3);
+	private Timer? _reminderTimer;
+
 	protected override async Task OnInitializedAsync()
 	{
 		_currentInstance = this;
@@ -841,7 +891,7 @@
 			{
 				Console.WriteLine($"Processing drop: {_draggedIssueId.Value} -> {status}");
 				await IssueApp.ChangeStatusAsync(_draggedIssueId.Value, status);
-				await ReloadAsync();
+			await ReloadAsync();
 				Console.WriteLine("Drop operation completed successfully");
 			}
 			catch (Exception ex)
@@ -972,10 +1022,835 @@
 		if (firstRender)
 		{
 			await JSRuntime.InvokeVoidAsync("setupDragAndDrop");
+			await ShowWelcomeNotification();
+			await CheckDailyNotifications();
+			await LoadNotificationsFromStorage();
 		}
 		else
 		{
 			await JSRuntime.InvokeVoidAsync("refreshDragAndDrop");
 		}
 	}
+
+	private async Task ShowWelcomeNotification()
+	{
+		try
+		{
+			// Debug için localStorage'ı temizle (test için)
+			await JSRuntime.InvokeVoidAsync("localStorage.removeItem", "hasShownWelcome");
+			
+			// localStorage'da hoşgeldin gösterilip gösterilmediğini kontrol et
+			var hasShownWelcome = await JSRuntime.InvokeAsync<string>("localStorage.getItem", "hasShownWelcome");
+			
+			// Debug için console'a yazdır
+			await JSRuntime.InvokeVoidAsync("console.log", $"localStorage hasShownWelcome: '{hasShownWelcome}'");
+			
+			if (hasShownWelcome == null || hasShownWelcome == "null" || string.IsNullOrEmpty(hasShownWelcome))
+			{
+				// Kullanıcı adını al - önce UserName, sonra Name, sonra Email
+				var userName = CurrentUser.UserName ?? 
+				               CurrentUser.Name ?? 
+				               CurrentUser.Email?.Split('@')[0] ?? 
+				               "Kullanıcı";
+				
+				var title = $"Hoşgeldin {userName}! 🎉";
+				var message = "Project Tracking sayfasına hoşgeldin! Bugün hangi görevlerle ilgileneceksin?";
+				
+				// Pop-up bildirim göster
+				await JSRuntime.InvokeVoidAsync("showToastNotification", title, message, "welcome");
+				
+				// Bildirim listesine de ekle
+				_notifications.Add(new NotificationItem
+				{
+					Id = Guid.NewGuid(),
+					Title = title,
+					Message = message,
+					Type = "welcome",
+					Time = DateTime.Now,
+					IsRead = false
+				});
+				_unreadNotificationCount++;
+				
+				// localStorage'a işaretle ki bir daha göstermesin
+				await JSRuntime.InvokeVoidAsync("localStorage.setItem", "hasShownWelcome", "true");
+				
+				StateHasChanged();
+			}
+		}
+		catch (Exception ex)
+		{
+			// Hata durumunda sadece bildirim göster, localStorage'ı atla
+			var userName = CurrentUser.UserName ?? 
+			               CurrentUser.Name ?? 
+			               CurrentUser.Email?.Split('@')[0] ?? 
+			               "Kullanıcı";
+			
+			var title = $"Hoşgeldin {userName}! 🎉";
+			var message = "Project Tracking sayfasına hoşgeldin! Bugün hangi görevlerle ilgileneceksin?";
+			
+			// Pop-up bildirim göster
+			await JSRuntime.InvokeVoidAsync("showToastNotification", title, message, "welcome");
+			
+			// Bildirim listesine de ekle
+			_notifications.Add(new NotificationItem
+			{
+				Id = Guid.NewGuid(),
+				Title = title,
+				Message = message,
+				Type = "welcome",
+				Time = DateTime.Now,
+				IsRead = false
+			});
+			_unreadNotificationCount++;
+			
+			StateHasChanged();
+		}
+	}
+
+	private async Task CheckDailyNotifications()
+	{
+		var now = DateTime.Now;
+		var currentHour = now.Hour;
+		var currentMinute = now.Minute;
+
+		// Gün başı bildirimi (9:00)
+		if (currentHour == 9 && currentMinute == 0)
+		{
+			await ShowDailyStartNotification();
+		}
+
+		// Gün sonu bildirimi (18:00)
+		if (currentHour == 18 && currentMinute == 0)
+		{
+			await ShowDailyEndNotification();
+		}
+
+		// Mola hatırlatıcısı (her 2 saatte bir)
+		if (currentHour % 2 == 0 && currentMinute == 0 && currentHour >= 10 && currentHour <= 16)
+		{
+			await ShowBreakReminder();
+		}
+
+		// To-do kontrolü (her saat başı)
+		if (currentMinute == 0)
+		{
+			await CheckTodoOverload();
+			await CheckDeadlineNotifications();
+			await CheckTeamNotifications();
+		}
+	}
+
+	private async Task ShowDailyStartNotification()
+	{
+		_notifications.Add(new NotificationItem
+		{
+			Id = Guid.NewGuid(),
+			Title = "Günaydın! 🌅",
+			Message = "Güzel bir gün başlıyor! Bugün hangi görevlerle ilgileneceksin?",
+			Type = "daily-start",
+			Time = DateTime.Now,
+			IsRead = false
+		});
+		_unreadNotificationCount++;
+		StateHasChanged();
+	}
+
+	private async Task ShowDailyEndNotification()
+	{
+		_notifications.Add(new NotificationItem
+		{
+			Id = Guid.NewGuid(),
+			Title = "İyi akşamlar! 🌆",
+			Message = "Bugün harika işler çıkardın! Yarın da böyle devam et!",
+			Type = "daily-end",
+			Time = DateTime.Now,
+			IsRead = false
+		});
+		_unreadNotificationCount++;
+		StateHasChanged();
+	}
+
+	private async Task ShowBreakReminder()
+	{
+		_notifications.Add(new NotificationItem
+		{
+			Id = Guid.NewGuid(),
+			Title = "Mola zamanı! ☕",
+			Message = "2 saattir çalışıyorsun. Biraz mola ver, gözlerini dinlendir!",
+			Type = "break",
+			Time = DateTime.Now,
+			IsRead = false
+		});
+		_unreadNotificationCount++;
+		StateHasChanged();
+	}
+
+	private async Task CheckTodoOverload()
+	{
+		try
+		{
+			// To-do sayısını al - tüm kolonlardaki issue sayısından
+			var todoCount = (todo?.Count ?? 0) + (inprogress?.Count ?? 0) + (review?.Count ?? 0) + (done?.Count ?? 0);
+			
+			// Eğer 10'dan fazla to-do varsa bildirim gönder
+			if (todoCount > 10)
+			{
+				var title = "⚠️ To-Do Listesi Kalabalık!";
+				var message = $"Şu anda {todoCount} adet görevin var! Önceliklerini belirle ve odaklan.";
+				
+				// Pop-up bildirim göster
+				await JSRuntime.InvokeVoidAsync("showToastNotification", title, message, "todo-overload");
+				
+				// Bildirim listesine de ekle
+				_notifications.Add(new NotificationItem
+				{
+					Id = Guid.NewGuid(),
+					Title = title,
+					Message = message,
+					Type = "todo-overload",
+					Time = DateTime.Now,
+					IsRead = false
+				});
+				_unreadNotificationCount++;
+				StateHasChanged();
+			}
+		}
+		catch (Exception ex)
+		{
+			// Hata durumunda sessizce geç
+			Console.WriteLine($"To-do kontrol hatası: {ex.Message}");
+		}
+	}
+
+	private async Task CheckDeadlineNotifications()
+	{
+		try
+		{
+			var now = DateTime.Now;
+			var upcomingDeadlines = new List<TrackingIssueDto>();
+			
+			// Tüm kolonlardaki görevleri kontrol et
+			var allIssues = new List<TrackingIssueDto>();
+			if (todo != null) allIssues.AddRange(todo);
+			if (inprogress != null) allIssues.AddRange(inprogress);
+			if (review != null) allIssues.AddRange(review);
+			if (done != null) allIssues.AddRange(done);
+			
+			foreach (var issue in allIssues)
+			{
+				if (issue.DueDate.HasValue && issue.Status != IssueStatus.Done)
+				{
+					var timeLeft = issue.DueDate.Value - now;
+					
+					// Son 24 saat içinde bitecek görevler
+					if (timeLeft.TotalHours <= 24 && timeLeft.TotalHours > 0)
+					{
+						upcomingDeadlines.Add(issue);
+					}
+				}
+			}
+			
+			// Deadline yaklaşan görevler varsa bildirim gönder
+			if (upcomingDeadlines.Any())
+			{
+				var title = "⏰ Deadline Yaklaşıyor!";
+				var message = $"{upcomingDeadlines.Count} görevin deadline'ı yaklaşıyor! Hemen kontrol et.";
+				
+				// Pop-up bildirim göster
+				await JSRuntime.InvokeVoidAsync("showToastNotification", title, message, "deadline");
+				
+				// Bildirim listesine de ekle
+				_notifications.Add(new NotificationItem
+				{
+					Id = Guid.NewGuid(),
+					Title = title,
+					Message = message,
+					Type = "deadline",
+					Time = DateTime.Now,
+					IsRead = false
+				});
+				_unreadNotificationCount++;
+				StateHasChanged();
+			}
+		}
+		catch (Exception ex)
+		{
+			// Hata durumunda sessizce geç
+			Console.WriteLine($"Deadline kontrol hatası: {ex.Message}");
+		}
+	}
+
+	private async Task CheckTeamNotifications()
+	{
+		try
+		{
+			// Rastgele takım bildirimleri simüle et (gerçek uygulamada veritabanından gelecek)
+			var random = new Random();
+			var teamNotifications = new[]
+			{
+				"🎉 Ahmet yeni bir görev tamamladı!",
+				"📝 Ayşe 'Login Sayfası' görevini başlattı",
+				"✅ Mehmet 'API Entegrasyonu' görevini bitirdi",
+				"💬 Zeynep yeni bir yorum ekledi",
+				"🚀 Takım bugün 5 görev tamamladı!",
+				"📊 Bu hafta %85 verimlilik oranına ulaştınız",
+				"🏆 En aktif takım üyesi: Ahmet",
+				"⏰ Takım toplantısı 15 dakika sonra başlıyor"
+			};
+			
+			// %10 şansla yorum bildirimi gönder
+			if (random.Next(1, 11) == 1)
+			{
+				var issueTitles = new[] { "Login Sayfası", "API Entegrasyonu", "Veritabanı Tasarımı", "Frontend Geliştirme", "Test Senaryoları" };
+				var commenters = new[] { "Ahmet", "Ayşe", "Mehmet", "Zeynep", "Ali", "Fatma" };
+				var comments = new[] { "Bu kısımda bir sorun var", "Harika çalışma!", "Daha detaylı açıklama gerekli", "Test edildi, çalışıyor", "Kod review tamamlandı" };
+				
+				var issueTitle = issueTitles[random.Next(issueTitles.Length)];
+				var commenter = commenters[random.Next(commenters.Length)];
+				var comment = comments[random.Next(comments.Length)];
+				
+				await ShowCommentNotification(issueTitle, commenter, comment);
+			}
+			
+			// %20 şansla takım bildirimi gönder
+			if (random.Next(1, 6) == 1)
+			{
+				var notification = teamNotifications[random.Next(teamNotifications.Length)];
+				var title = "👥 Takım Aktivitesi";
+				var message = notification;
+				
+				// Pop-up bildirim göster
+				await JSRuntime.InvokeVoidAsync("showToastNotification", title, message, "team");
+				
+				// Bildirim listesine de ekle
+				_notifications.Add(new NotificationItem
+				{
+					Id = Guid.NewGuid(),
+					Title = title,
+					Message = message,
+					Type = "team",
+					Time = DateTime.Now,
+					IsRead = false
+				});
+				_unreadNotificationCount++;
+				StateHasChanged();
+			}
+		}
+		catch (Exception ex)
+		{
+			// Hata durumunda sessizce geç
+			Console.WriteLine($"Takım bildirimi hatası: {ex.Message}");
+		}
+	}
+
+	public async Task ShowCommentNotification(string issueTitle, string commenterName, string commentPreview)
+	{
+		try
+		{
+			var title = "💬 Yeni Yorum!";
+			var message = $"{commenterName} '{issueTitle}' görevine yorum ekledi: \"{commentPreview}\"";
+			
+			// Pop-up bildirim göster
+			await JSRuntime.InvokeVoidAsync("showToastNotification", title, message, "comment");
+			
+			// Bildirim listesine de ekle
+			_notifications.Add(new NotificationItem
+			{
+				Id = Guid.NewGuid(),
+				Title = title,
+				Message = message,
+				Type = "comment",
+				Time = DateTime.Now,
+				IsRead = false
+			});
+			_unreadNotificationCount++;
+			StateHasChanged();
+		}
+		catch (Exception ex)
+		{
+			// Hata durumunda sessizce geç
+			Console.WriteLine($"Yorum bildirimi hatası: {ex.Message}");
+		}
+	}
+
+	private async Task LoadNotificationsFromStorage()
+	{
+		try
+		{
+			var storedNotifications = await JSRuntime.InvokeAsync<string>("getNotificationsFromStorage");
+			if (!string.IsNullOrEmpty(storedNotifications))
+			{
+				var notifications = System.Text.Json.JsonSerializer.Deserialize<List<dynamic>>(storedNotifications);
+				foreach (var notification in notifications)
+				{
+					var notificationItem = new NotificationItem
+					{
+						Id = Guid.Parse(notification.GetProperty("id").GetString()),
+						Title = notification.GetProperty("title").GetString(),
+						Message = notification.GetProperty("message").GetString(),
+						Type = notification.GetProperty("type").GetString(),
+						Time = DateTime.Parse(notification.GetProperty("time").GetString()),
+						IsRead = notification.GetProperty("isRead").GetBoolean()
+					};
+					
+					_notifications.Add(notificationItem);
+					if (!notificationItem.IsRead)
+					{
+						_unreadNotificationCount++;
+					}
+				}
+				StateHasChanged();
+			}
+		}
+		catch (Exception ex)
+		{
+			Console.WriteLine($"Bildirim yükleme hatası: {ex.Message}");
+		}
+	}
+
+	private void ShowNotificationModal()
+	{
+		_showNotificationModal = true;
+		StateHasChanged();
+	}
+
+	private void HideNotificationModal()
+	{
+		_showNotificationModal = false;
+		StateHasChanged();
+	}
+
+	private void MarkAsRead(Guid notificationId)
+	{
+		var notification = _notifications.FirstOrDefault(n => n.Id == notificationId);
+		if (notification != null && !notification.IsRead)
+		{
+			notification.IsRead = true;
+			_unreadNotificationCount--;
+			StateHasChanged();
+		}
+	}
+
+	private void DeleteNotification(Guid notificationId)
+	{
+		var notification = _notifications.FirstOrDefault(n => n.Id == notificationId);
+		if (notification != null)
+		{
+			_notifications.Remove(notification);
+			if (!notification.IsRead)
+			{
+				_unreadNotificationCount--;
+			}
+			StateHasChanged();
+		}
+	}
+
+	private void AddQuickReminder()
+	{
+		_showQuickReminderModal = true;
+		StateHasChanged();
+	}
+
+	private void HideQuickReminderModal()
+	{
+		_showQuickReminderModal = false;
+		_newReminderTitle = "";
+		_newReminderMessage = "";
+		_newReminderTime = DateTime.Now.AddMinutes(3);
+		StateHasChanged();
+	}
+
+	private async Task SaveQuickReminder()
+	{
+		if (!string.IsNullOrWhiteSpace(_newReminderTitle))
+		{
+			var reminderId = Guid.NewGuid();
+			var reminderItem = new NotificationItem
+			{
+				Id = reminderId,
+				Title = _newReminderTitle,
+				Message = _newReminderMessage,
+				Type = "reminder",
+				Time = _newReminderTime,
+				IsRead = false
+			};
+			
+			// Bildirim listesine EKLEME! Sadece zamanlı hatırlatıcı ayarla
+			await ScheduleReminder(reminderItem);
+			
+			HideQuickReminderModal();
+		}
+	}
+
+	private async Task ScheduleReminder(NotificationItem reminder)
+	{
+		var delay = reminder.Time - DateTime.Now;
+		if (delay.TotalMilliseconds > 0)
+		{
+			// Timer ile hatırlatıcı ayarla - InvokeVoidAsync kullan
+			_reminderTimer = new Timer(async _ => 
+			{
+				await InvokeAsync(async () => await ShowScheduledReminder(reminder));
+			}, null, delay, Timeout.InfiniteTimeSpan);
+		}
+		else
+		{
+			// Zaman geçmişse hemen göster
+			await ShowScheduledReminder(reminder);
+		}
+	}
+
+	private async Task ShowScheduledReminder(NotificationItem reminder)
+	{
+		// Pop-up bildirim göster
+		await JSRuntime.InvokeVoidAsync("showToastNotification", reminder.Title, reminder.Message, "reminder");
+		
+		// Şimdi bildirim listesine ekle
+		_notifications.Add(reminder);
+		_unreadNotificationCount++;
+		StateHasChanged();
+	}
+}
+
+<!-- Bildirim Modal -->
+@if (_showNotificationModal)
+{
+	<div class="modal-backdrop show" @onclick="HideNotificationModal" @onclick:stopPropagation="true"></div>
+	<div class="modal show d-block" tabindex="-1" @onclick:stopPropagation="true">
+		<div class="modal-dialog modal-lg">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">
+						<i class="fas fa-bell me-2"></i>
+						Bildirimler
+					</h5>
+					<button type="button" class="btn-close" @onclick="HideNotificationModal"></button>
+				</div>
+				<div class="modal-body">
+					<div class="d-flex justify-content-between align-items-center mb-3">
+						<h6 class="mb-0">Tüm Bildirimler</h6>
+						<button class="btn btn-sm btn-outline-primary" @onclick="AddQuickReminder">
+							<i class="fas fa-plus me-1"></i>
+							Hızlı Hatırlatıcı
+						</button>
+					</div>
+
+					@if (_notifications.Any())
+					{
+						<div class="notification-list">
+							@foreach (var notification in _notifications.OrderByDescending(n => n.Time))
+							{
+								<div class="notification-item @(notification.IsRead ? "read" : "unread")" 
+									 @onclick="() => MarkAsRead(notification.Id)"
+									 @oncontextmenu="() => DeleteNotification(notification.Id)"
+									 title="Sol tık: Okundu işaretle | Sağ tık: Sil">
+									<div class="d-flex align-items-start">
+										<div class="notification-icon me-3">
+											@if (notification.Type == "welcome")
+											{
+												<i class="fas fa-hand-wave text-warning"></i>
+											}
+											else if (notification.Type == "daily-start")
+											{
+												<i class="fas fa-sun text-warning"></i>
+											}
+											else if (notification.Type == "daily-end")
+											{
+												<i class="fas fa-moon text-info"></i>
+											}
+											else if (notification.Type == "break")
+											{
+												<i class="fas fa-coffee text-success"></i>
+											}
+											else if (notification.Type == "reminder")
+											{
+												<i class="fas fa-bell text-primary"></i>
+											}
+											else if (notification.Type == "todo-overload")
+											{
+												<i class="fas fa-exclamation-triangle text-danger"></i>
+											}
+											else if (notification.Type == "deadline")
+											{
+												<i class="fas fa-clock text-warning"></i>
+											}
+											else if (notification.Type == "team")
+											{
+												<i class="fas fa-users text-primary"></i>
+											}
+											else if (notification.Type == "comment")
+											{
+												<i class="fas fa-comment text-info"></i>
+											}
+											else
+											{
+												<i class="fas fa-bell text-primary"></i>
+											}
+										</div>
+										<div class="flex-grow-1">
+											<h6 class="mb-1">@notification.Title</h6>
+											<p class="mb-1 text-muted">@notification.Message</p>
+											<small class="text-muted">@notification.Time.ToString("HH:mm")</small>
+										</div>
+										<div class="notification-actions d-flex align-items-center">
+											@if (!notification.IsRead)
+											{
+												<div class="unread-indicator me-2"></div>
+											}
+											<button class="btn btn-sm btn-outline-danger" 
+													@onclick:stopPropagation="true"
+													@onclick="() => DeleteNotification(notification.Id)"
+													title="Sil">
+												<i class="fas fa-trash"></i>
+											</button>
+										</div>
+									</div>
+								</div>
+							}
+						</div>
+					}
+					else
+					{
+						<div class="text-center py-4">
+							<i class="fas fa-bell-slash fa-3x text-muted mb-3"></i>
+							<p class="text-muted">Henüz bildirim yok</p>
+						</div>
+					}
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+<!-- Hızlı Hatırlatıcı Modal -->
+@if (_showQuickReminderModal)
+{
+	<div class="modal-backdrop show"></div>
+	<div class="modal show d-block" tabindex="-1">
+		<div class="modal-dialog">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">
+						<i class="fas fa-plus me-2"></i>
+						Hızlı Hatırlatıcı
+					</h5>
+					<button type="button" class="btn-close" @onclick="HideQuickReminderModal"></button>
+				</div>
+				<div class="modal-body">
+					<div class="mb-3">
+						<label class="form-label">Başlık</label>
+						<input type="text" class="form-control" @bind="_newReminderTitle" placeholder="Hatırlatıcı başlığı..." />
+					</div>
+					<div class="mb-3">
+						<label class="form-label">Mesaj</label>
+						<textarea class="form-control" @bind="_newReminderMessage" rows="3" placeholder="Hatırlatıcı mesajı..."></textarea>
+					</div>
+					<div class="mb-3">
+						<label class="form-label">Zaman</label>
+						<input type="datetime-local" class="form-control" @bind="_newReminderTime" />
+					</div>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-secondary" @onclick="HideQuickReminderModal">İptal</button>
+					<button type="button" class="btn btn-primary" @onclick="SaveQuickReminder">Kaydet</button>
+				</div>
+			</div>
+		</div>
+	</div>
+}
+
+<style>
+	.notification-item {
+		padding: 12px;
+		border: 1px solid #e9ecef;
+		border-radius: 8px;
+		margin-bottom: 8px;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		position: relative;
+		overflow: hidden;
+	}
+
+	.notification-item:hover {
+		background-color: #f8f9fa;
+		border-color: #dee2e6;
+		transform: translateX(5px);
+	}
+
+	.notification-item.unread {
+		background-color: #e3f2fd;
+		border-color: #2196f3;
+	}
+
+	.notification-item.read {
+		opacity: 0.7;
+	}
+
+	.notification-item.swipe-delete {
+		animation: swipeOut 0.3s ease-out forwards;
+	}
+
+	@@keyframes swipeOut {
+		0% {
+			transform: translateX(0);
+			opacity: 1;
+		}
+		100% {
+			transform: translateX(100%);
+			opacity: 0;
+		}
+	}
+
+	.unread-indicator {
+		width: 8px;
+		height: 8px;
+		background-color: #dc3545;
+		border-radius: 50%;
+	}
+
+	.notification-actions {
+		opacity: 0;
+		transition: opacity 0.2s ease;
+	}
+
+	.notification-item:hover .notification-actions {
+		opacity: 1;
+		margin-left: 8px;
+	}
+
+	.notification-icon {
+		font-size: 1.2em;
+		width: 24px;
+		text-align: center;
+	}
+
+	/* Tab Navigation Styles */
+	.view-tabs {
+		display: flex;
+		background: #f8f9fa;
+		border-radius: 8px;
+		padding: 4px;
+		border: 1px solid #dee2e6;
+	}
+
+	.tab-btn {
+		padding: 8px 16px;
+		border: none;
+		background: transparent;
+		cursor: pointer;
+		border-radius: 6px;
+		transition: all 0.3s ease;
+		font-size: 14px;
+		font-weight: 500;
+		color: #6c757d;
+		display: flex;
+		align-items: center;
+	}
+
+	.tab-btn:hover {
+		background: #e9ecef;
+		color: #495057;
+	}
+
+	.tab-btn.active {
+		background: #007bff;
+		color: white;
+		font-weight: 600;
+		box-shadow: 0 2px 4px rgba(0,123,255,0.3);
+	}
+
+	.tab-btn.active:hover {
+		background: #0056b3;
+	}
+
+	/* Gantt Chart Placeholder Styles */
+	.gantt-chart-placeholder {
+		min-height: 100vh;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		padding: 40px 20px;
+	}
+
+	.placeholder-content {
+		text-align: center;
+		background: white;
+		padding: 40px;
+		border-radius: 12px;
+		box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+		max-width: 400px;
+	}
+
+	.placeholder-content h3 {
+		margin-bottom: 16px;
+		font-weight: 600;
+	}
+
+	.placeholder-content p {
+		margin-bottom: 24px;
+		font-size: 16px;
+	}
+
+	/* Gantt Chart Container */
+	.gantt-chart-container {
+		padding: 20px;
+		background: #f8f9fa;
+		min-height: 100vh;
+	}
+</style>
+
+@code {
+	// Tab Navigation için state
+	private string currentView = "kanban"; // Varsayılan görünüm
+	
+	/// <summary>
+	/// Tab görünümünü değiştir
+	/// </summary>
+	/// <param name="view">Görünüm adı: "kanban" veya "gantt"</param>
+	private void SwitchView(string view)
+	{
+		currentView = view;
+		StateHasChanged(); // UI'yi güncelle
+	}
+
+    /// <summary>
+    /// Tüm görevleri Gantt Chart için getir
+    /// </summary>
+    /// <returns>Tüm görevlerin listesi</returns>
+    private List<TrackingIssueDto> GetAllIssues()
+    {
+        var allIssues = new List<TrackingIssueDto>();
+        
+        if (todo != null) allIssues.AddRange(todo);
+        if (inprogress != null) allIssues.AddRange(inprogress);
+        if (review != null) allIssues.AddRange(review);
+        if (done != null) allIssues.AddRange(done);
+        
+        return allIssues;
+    }
+
+    /// <summary>
+    /// Gantt Chart'tan görev seçildiğinde
+    /// </summary>
+    /// <param name="selectedTask">Seçilen görev</param>
+    private async Task OnGanttTaskSelected(TrackingIssueDto selectedTask)
+    {
+        // Seçilen görevi detay modal'da aç
+        await _detailModal.ShowAsync(selectedTask);
+        
+        // Kanban görünümüne geç
+        SwitchView("kanban");
+    }
+
+	public class NotificationItem
+	{
+		public Guid Id { get; set; }
+		public string Title { get; set; } = string.Empty;
+		public string Message { get; set; } = string.Empty;
+		public string Type { get; set; } = string.Empty;
+		public DateTime Time { get; set; }
+		public bool IsRead { get; set; }
+	}
+
 }

@@ -84,6 +84,8 @@ public class AltinayMenuContributor : IMenuContributor
 
     );    
 
+        // Bildirim sistemi artık ProjectTracking sayfasında entegre
+
         if (MultiTenancyConsts.IsEnabled)
         {
             administration.SetSubItemOrder(TenantManagementMenuNames.GroupName, 1);

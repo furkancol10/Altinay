@@ -348,6 +348,70 @@ public class AltinayDbContext :
             b.HasIndex(x => new { x.ProjectId, x.UserId }).IsUnique();
         });
 
+        //SMART NOTIFICATIONS
+        builder.Entity<SmartNotification>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "SmartNotification", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            b.Property(x => x.NotificationType).IsRequired().HasMaxLength(50);
+            b.Property(x => x.Title).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Message).IsRequired().HasMaxLength(1000);
+
+            // Indexes
+            b.HasIndex(x => x.UserId);
+            b.HasIndex(x => x.NotificationType);
+            b.HasIndex(x => x.IsSent);
+            b.HasIndex(x => x.IsRead);
+            b.HasIndex(x => x.ScheduledFor);
+
+            // Relationships
+            b.HasOne<IdentityUser>()
+             .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        //NOTIFICATION SETTINGS
+        builder.Entity<NotificationSetting>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "NotificationSetting", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            // Indexes
+            b.HasIndex(x => x.UserId).IsUnique();
+
+            // Relationships
+            b.HasOne<IdentityUser>()
+             .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        //USER REMINDERS
+        builder.Entity<UserReminder>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "UserReminder", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            b.Property(x => x.Title).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Message).IsRequired().HasMaxLength(1000);
+            b.Property(x => x.ReminderType).IsRequired().HasMaxLength(50);
+            b.Property(x => x.ReminderTime).IsRequired();
+
+            // Indexes
+            b.HasIndex(x => x.UserId);
+            b.HasIndex(x => x.ReminderTime);
+            b.HasIndex(x => x.IsActive);
+            b.HasIndex(x => x.IsCompleted);
+
+            // Relationships
+            b.HasOne<IdentityUser>()
+             .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
         //TRACKİNG COMMENT
         builder.Entity<TrackingComment>(b =>
         {
@@ -499,8 +563,8 @@ public class AltinayDbContext :
             b.ToTable(AltinayConsts.DbTablePrefix + "NotificationSetting", AltinayConsts.DbSchema);
             b.ConfigureByConvention();
 
-            b.Property(x => x.WorkStartTime).IsRequired().HasMaxLength(10);
-            b.Property(x => x.WorkEndTime).IsRequired().HasMaxLength(10);
+            b.Property(x => x.DailyStartNotificationTime).IsRequired();
+            b.Property(x => x.DailyEndNotificationTime).IsRequired();
 
             // Indexes
             b.HasIndex(x => x.UserId).IsUnique();

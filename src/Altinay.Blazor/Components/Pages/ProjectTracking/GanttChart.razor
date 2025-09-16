@@ -1,0 +1,691 @@
+@using Altinay.ProjectTracking.ProjectTrackingDtos
+@using Altinay.Domain.ProjectTracking
+@using Altinay.Enums
+@inject IJSRuntime JSRuntime
+
+<div class="gantt-chart-container">
+    <!-- Controls -->
+    <div class="gantt-controls mb-3">
+        <div class="d-flex justify-content-between align-items-center">
+            <div class="gantt-title">
+                <h4 class="mb-0">
+                    <i class="fas fa-chart-gantt me-2"></i>
+                    Gantt Chart
+                </h4>
+            </div>
+            <div class="gantt-actions">
+                <button class="btn btn-outline-primary btn-sm me-2" @onclick="RefreshChart">
+                    <i class="fas fa-sync-alt me-1"></i>
+                    Yenile
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" @onclick="ExportChart">
+                    <i class="fas fa-download me-1"></i>
+                    Dışa Aktar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Chart Container -->
+    <div class="chart-container">
+        <canvas id="ganttChart" width="800" height="400"></canvas>
+        
+        <!-- Fallback HTML Gantt Chart -->
+        <div id="htmlGanttChart" style="display: none;">
+            <div class="html-gantt-chart">
+                <div class="gantt-header">
+                    <div class="gantt-task-column">
+                        <h6>Görevler</h6>
+                    </div>
+                    <div class="gantt-timeline">
+                        <div class="timeline-days">
+                            @for (int i = 1; i <= 31; i++)
+                            {
+                                <div class="timeline-day">@i</div>
+                            }
+                        </div>
+                    </div>
+                </div>
+                <div class="gantt-body">
+                    @if (Issues != null && Issues.Any())
+                    {
+                        @foreach (var issue in Issues)
+                        {
+                            <div class="gantt-row">
+                                <div class="gantt-task-column">
+                                    <div class="task-info">
+                                        <div class="task-title">@issue.Title</div>
+                                        <div class="task-meta">
+                                            <span class="task-status @GetStatusClass(issue.Status)">@GetStatusText(issue.Status)</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="gantt-timeline">
+                                    <div class="task-bar-container">
+                                        @if (issue.StartDate.HasValue)
+                                        {
+                                            <div class="task-bar @GetStatusClass(issue.Status)" 
+                                                 style="left: @(issue.StartDate.Value.Day * 20)px; width: @(issue.EstimatedDays * 20)px;">
+                                                <div class="task-progress" style="width: @issue.Progress%"></div>
+                                                <div class="task-label">@issue.Title</div>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <div class="task-bar-placeholder">
+                                                <span class="text-muted">Tarih belirtilmemiş</span>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="gantt-row">
+                            <div class="gantt-task-column">
+                                <div class="task-info">
+                                    <div class="task-title text-muted">Henüz görev yok</div>
+                                </div>
+                            </div>
+                            <div class="gantt-timeline">
+                                <div class="task-bar-placeholder">
+                                    <span class="text-muted">Gantt Chart için görevler gerekli</span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task List -->
+    <div class="task-list mt-4">
+        <h5 class="mb-3">
+            <i class="fas fa-list me-2"></i>
+            Görev Detayları
+        </h5>
+        <div class="row">
+            @if (Issues != null && Issues.Any())
+            {
+                @foreach (var issue in Issues)
+                {
+                    <div class="col-md-6 col-lg-4 mb-3">
+                        <div class="task-card @GetStatusClass(issue.Status)" @onclick="@(() => SelectTask(issue))">
+                            <div class="task-card-header">
+                                <h6 class="task-title">@issue.Title</h6>
+                                <span class="task-status-badge @GetStatusClass(issue.Status)">@GetStatusText(issue.Status)</span>
+                            </div>
+                            <div class="task-card-body">
+                                <div class="task-meta">
+                                    <div class="meta-item">
+                                        <i class="fas fa-calendar me-1"></i>
+                                        <span>@(issue.StartDate?.ToString("dd.MM.yyyy") ?? "Tarih yok")</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <i class="fas fa-clock me-1"></i>
+                                        <span>@issue.EstimatedDays gün</span>
+                                    </div>
+                                    <div class="meta-item">
+                                        <i class="fas fa-percentage me-1"></i>
+                                        <span>%@issue.Progress</span>
+                                    </div>
+                                </div>
+                                <div class="progress mt-2">
+                                    <div class="progress-bar @GetStatusClass(issue.Status)" 
+                                         style="width: @issue.Progress%" 
+                                         role="progressbar" 
+                                         aria-valuenow="@issue.Progress" 
+                                         aria-valuemin="0" 
+                                         aria-valuemax="100">
+                                        @issue.Progress%
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="col-12">
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-chart-gantt fa-3x mb-3"></i>
+                        <h5>Henüz görev yok</h5>
+                        <p>Gantt Chart için görevler gerekli</p>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+    .gantt-chart-container {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+        padding: 24px;
+        margin: 20px 0;
+    }
+
+    .gantt-controls {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 16px 20px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+
+    .gantt-title h4 {
+        color: white;
+        font-weight: 600;
+    }
+
+    .gantt-actions .btn {
+        background: rgba(255,255,255,0.2);
+        border: 1px solid rgba(255,255,255,0.3);
+        color: white;
+        transition: all 0.3s ease;
+    }
+
+    .gantt-actions .btn:hover {
+        background: rgba(255,255,255,0.3);
+        border-color: rgba(255,255,255,0.5);
+        color: white;
+        transform: translateY(-2px);
+    }
+
+    .chart-container {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+        border: 1px solid #dee2e6;
+    }
+
+    #ganttChart {
+        max-width: 100%;
+        height: auto;
+    }
+
+    .task-list {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+    }
+
+    .task-card {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transition: all 0.3s ease;
+        cursor: pointer;
+        border-left: 4px solid #dee2e6;
+    }
+
+    .task-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    }
+
+    .task-card.todo { border-left-color: #1976d2; }
+    .task-card.inprogress { border-left-color: #f57c00; }
+    .task-card.review { border-left-color: #7b1fa2; }
+    .task-card.done { border-left-color: #388e3c; }
+
+    .task-card-header {
+        padding: 16px 16px 8px 16px;
+        display: flex;
+        justify-content: between;
+        align-items: center;
+    }
+
+    .task-card-body {
+        padding: 8px 16px 16px 16px;
+    }
+
+    .task-title {
+        font-weight: 600;
+        color: #212529;
+        margin: 0;
+        flex: 1;
+    }
+
+    .task-status-badge {
+        padding: 4px 12px;
+        border-radius: 16px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .task-status-badge.todo { background: #e3f2fd; color: #1976d2; }
+    .task-status-badge.inprogress { background: #fff3e0; color: #f57c00; }
+    .task-status-badge.review { background: #f3e5f5; color: #7b1fa2; }
+    .task-status-badge.done { background: #e8f5e8; color: #388e3c; }
+
+    .task-meta {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .meta-item {
+        display: flex;
+        align-items: center;
+        font-size: 13px;
+        color: #6c757d;
+    }
+
+    .meta-item i {
+        width: 16px;
+        color: #adb5bd;
+    }
+
+    .progress {
+        height: 8px;
+        background: #e9ecef;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .progress-bar {
+        height: 100%;
+        border-radius: 4px;
+        transition: width 0.3s ease;
+        font-size: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+    }
+
+    .progress-bar.todo { background: linear-gradient(90deg, #1976d2, #42a5f5); }
+    .progress-bar.inprogress { background: linear-gradient(90deg, #f57c00, #ffb74d); }
+    .progress-bar.review { background: linear-gradient(90deg, #7b1fa2, #ba68c8); }
+    .progress-bar.done { background: linear-gradient(90deg, #388e3c, #66bb6a); }
+
+    /* HTML Gantt Chart Styles */
+    .html-gantt-chart {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+
+    .gantt-header {
+        display: flex;
+        background: #f8f9fa;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .gantt-task-column {
+        width: 300px;
+        padding: 16px;
+        border-right: 1px solid #dee2e6;
+        background: #f8f9fa;
+    }
+
+    .gantt-timeline {
+        flex: 1;
+        overflow-x: auto;
+    }
+
+    .timeline-days {
+        display: flex;
+        gap: 2px;
+        padding: 16px;
+    }
+
+    .timeline-day {
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        color: #6c757d;
+        background: #e9ecef;
+        border-radius: 4px;
+    }
+
+    .gantt-body {
+        max-height: 600px;
+        overflow-y: auto;
+    }
+
+    .gantt-row {
+        display: flex;
+        border-bottom: 1px solid #dee2e6;
+        min-height: 60px;
+    }
+
+    .gantt-row:hover {
+        background: #f8f9fa;
+    }
+
+    .task-info {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        height: 100%;
+    }
+
+    .task-title {
+        font-weight: 600;
+        color: #212529;
+        margin-bottom: 4px;
+    }
+
+    .task-meta {
+        display: flex;
+        gap: 8px;
+    }
+
+    .task-status {
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 500;
+    }
+
+    .task-status.todo { background: #e3f2fd; color: #1976d2; }
+    .task-status.inprogress { background: #fff3e0; color: #f57c00; }
+    .task-status.review { background: #f3e5f5; color: #7b1fa2; }
+    .task-status.done { background: #e8f5e8; color: #388e3c; }
+
+    .task-bar-container {
+        position: relative;
+        height: 100%;
+        padding: 8px 16px;
+    }
+
+    .task-bar {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        height: 24px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        padding: 0 8px;
+        font-size: 12px;
+        font-weight: 500;
+        color: white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .task-bar.todo { background: #1976d2; }
+    .task-bar.inprogress { background: #f57c00; }
+    .task-bar.review { background: #7b1fa2; }
+    .task-bar.done { background: #388e3c; }
+
+    .task-progress {
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        background: rgba(255,255,255,0.3);
+        border-radius: 12px;
+        transition: width 0.3s ease;
+    }
+
+    .task-label {
+        position: relative;
+        z-index: 1;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .task-bar-placeholder {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: #6c757d;
+        font-style: italic;
+    }
+
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .gantt-chart-container {
+            padding: 16px;
+            margin: 10px 0;
+        }
+        
+        .gantt-controls {
+            padding: 12px 16px;
+        }
+        
+        .chart-container {
+            padding: 16px;
+        }
+        
+        .task-list {
+            padding: 16px;
+        }
+    }
+</style>
+
+@code {
+    [Parameter] public List<TrackingIssueDto>? Issues { get; set; }
+    [Parameter] public EventCallback<TrackingIssueDto> OnTaskSelected { get; set; }
+
+    private TrackingIssueDto? selectedTask;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await InitializeChart();
+        }
+    }
+
+    /// <summary>
+    /// Chart.js ile Gantt Chart'ı başlat
+    /// </summary>
+    private async Task InitializeChart()
+    {
+        if (Issues == null || !Issues.Any()) return;
+
+        try
+        {
+            // Önce script'leri yükle
+            await LoadScripts();
+            
+            // Chart'ı başlat
+            var chartData = PrepareChartData();
+            await JSRuntime.InvokeVoidAsync("initializeGanttChart", "ganttChart", chartData);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Chart initialization error: {ex.Message}");
+            // Fallback: HTML Gantt Chart'ı göster
+            await ShowHtmlGanttChart();
+        }
+    }
+
+    /// <summary>
+    /// HTML Gantt Chart'ı göster (fallback)
+    /// </summary>
+    private async Task ShowHtmlGanttChart()
+    {
+        await JSRuntime.InvokeVoidAsync("showHtmlGanttChart");
+    }
+
+    /// <summary>
+    /// Gerekli script'leri dinamik yükle
+    /// </summary>
+    private async Task LoadScripts()
+    {
+        // Chart.js'i yükle
+        await JSRuntime.InvokeVoidAsync("loadScript", "https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.js");
+        
+        // Date adapter'ı yükle
+        await JSRuntime.InvokeVoidAsync("loadScript", "https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js");
+        
+        // Kendi script'imizi yükle
+        await JSRuntime.InvokeVoidAsync("loadScript", "/js/gantt-chart.js");
+    }
+
+    /// <summary>
+    /// Chart.js için veri hazırla
+    /// </summary>
+    private object PrepareChartData()
+    {
+        var datasets = new List<object>();
+        var labels = new List<string>();
+
+        if (Issues != null)
+        {
+            foreach (var issue in Issues)
+            {
+                labels.Add(issue.Title);
+                
+                if (issue.StartDate.HasValue)
+                {
+                    var startDate = issue.StartDate.Value;
+                    var endDate = startDate.AddDays(issue.EstimatedDays);
+                    
+                    datasets.Add(new
+                    {
+                        label = issue.Title,
+                        data = new[]
+                        {
+                            new { x = startDate.ToString("yyyy-MM-dd"), y = 0 },
+                            new { x = endDate.ToString("yyyy-MM-dd"), y = 0 }
+                        },
+                        backgroundColor = GetStatusColor(issue.Status),
+                        borderColor = GetStatusColor(issue.Status),
+                        borderWidth = 2,
+                        pointRadius = 0,
+                        pointHoverRadius = 5,
+                        fill = false,
+                        tension = 0
+                    });
+                }
+            }
+        }
+
+        return new
+        {
+            type = "scatter",
+            data = new
+            {
+                labels = labels.ToArray(),
+                datasets = datasets.ToArray()
+            },
+            options = new
+            {
+                responsive = true,
+                maintainAspectRatio = false,
+                scales = new
+                {
+                    x = new
+                    {
+                        type = "time",
+                        time = new
+                        {
+                            unit = "day",
+                            displayFormats = new
+                            {
+                                day = "MMM dd"
+                            }
+                        },
+                        title = new
+                        {
+                            display = true,
+                            text = "Tarih"
+                        }
+                    },
+                    y = new
+                    {
+                        display = false
+                    }
+                },
+                plugins = new
+                {
+                    legend = new
+                    {
+                        display = false
+                    },
+                    tooltip = new
+                    {
+                        callbacks = new
+                        {
+                            title = "function(context) { return context[0].dataset.label; }",
+                            label = "function(context) { return 'Başlangıç: ' + context.parsed.x; }"
+                        }
+                    }
+                }
+            }
+        };
+    }
+
+    /// <summary>
+    /// Görev seçildiğinde
+    /// </summary>
+    private async Task SelectTask(TrackingIssueDto task)
+    {
+        selectedTask = task;
+        await OnTaskSelected.InvokeAsync(task);
+        StateHasChanged();
+    }
+
+    /// <summary>
+    /// Chart'ı yenile
+    /// </summary>
+    private async Task RefreshChart()
+    {
+        await InitializeChart();
+    }
+
+    /// <summary>
+    /// Chart'ı dışa aktar
+    /// </summary>
+    private async Task ExportChart()
+    {
+        await JSRuntime.InvokeVoidAsync("exportChart", "ganttChart");
+    }
+
+    private string GetStatusClass(IssueStatus status)
+    {
+        return status switch
+        {
+            IssueStatus.ToDo => "todo",
+            IssueStatus.InProgress => "inprogress",
+            IssueStatus.InReview => "review",
+            IssueStatus.Done => "done",
+            _ => "todo"
+        };
+    }
+
+    private string GetStatusText(IssueStatus status)
+    {
+        return status switch
+        {
+            IssueStatus.ToDo => "To Do",
+            IssueStatus.InProgress => "In Progress",
+            IssueStatus.InReview => "Review",
+            IssueStatus.Done => "Done",
+            _ => "To Do"
+        };
+    }
+
+    private string GetStatusColor(IssueStatus status)
+    {
+        return status switch
+        {
+            IssueStatus.ToDo => "#1976d2",
+            IssueStatus.InProgress => "#f57c00",
+            IssueStatus.InReview => "#7b1fa2",
+            IssueStatus.Done => "#388e3c",
+            _ => "#1976d2"
+        };
+    }
+}

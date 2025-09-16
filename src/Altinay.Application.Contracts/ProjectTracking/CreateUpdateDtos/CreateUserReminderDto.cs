@@ -3,14 +3,10 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Altinay.ProjectTracking.CreateUpdateDtos
 {
-    public class CreateSmartNotificationDto
+    public class CreateUserReminderDto
     {
         [Required]
         public Guid UserId { get; set; }
-
-        [Required]
-        [MaxLength(50)]
-        public string NotificationType { get; set; } = string.Empty;
 
         [Required]
         [MaxLength(200)]
@@ -20,6 +16,13 @@ namespace Altinay.ProjectTracking.CreateUpdateDtos
         [MaxLength(1000)]
         public string Message { get; set; } = string.Empty;
 
-        public DateTime? ScheduledFor { get; set; }
+        [Required]
+        public DateTime ReminderTime { get; set; }
+
+        [Required]
+        [MaxLength(50)]
+        public string ReminderType { get; set; } = string.Empty;
+
+        public Guid? RelatedTaskId { get; set; }
     }
 }

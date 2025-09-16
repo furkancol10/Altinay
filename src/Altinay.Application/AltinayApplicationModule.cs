@@ -6,6 +6,9 @@ using Volo.Abp.Modularity;
 using Volo.Abp.PermissionManagement;
 using Volo.Abp.SettingManagement;
 using Volo.Abp.TenantManagement;
+using Altinay.ProjectTracking.IAppServices;
+using Altinay.ProjectTracking;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Altinay;
 
@@ -27,5 +30,8 @@ public class AltinayApplicationModule : AbpModule
         {
             options.AddMaps<AltinayApplicationModule>();
         });
+
+        // Bildirim sistemi servislerini kaydet
+        // TODO: Servisler oluşturulduktan sonra aktifleştirilecek
     }
 }
