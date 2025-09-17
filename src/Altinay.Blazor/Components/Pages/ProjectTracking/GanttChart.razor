@@ -1,81 +1,215 @@
 @using Altinay.ProjectTracking.ProjectTrackingDtos
 @using Altinay.Domain.ProjectTracking
 @using Altinay.Enums
-@inject IJSRuntime JSRuntime
+@inject IJSRuntime JSRunTime
+@inject Microsoft.AspNetCore.Components.NavigationManager UriHelper
 
-<div class="gantt-chart-container">
-    <!-- Controls -->
-    <div class="gantt-controls mb-3">
-        <div class="d-flex justify-content-between align-items-center">
-            <div class="gantt-title">
-                <h4 class="mb-0">
-                    <i class="fas fa-chart-gantt me-2"></i>
-                    Gantt Chart
-                </h4>
-            </div>
-            <div class="gantt-actions">
-                <button class="btn btn-outline-primary btn-sm me-2" @onclick="RefreshChart">
-                    <i class="fas fa-sync-alt me-1"></i>
-                    Yenile
-                </button>
-                <button class="btn btn-outline-secondary btn-sm" @onclick="ExportChart">
-                    <i class="fas fa-download me-1"></i>
-                    Dışa Aktar
-                </button>
+<script>
+    // Kanban'dan kopyalanan tam drag drop sistemi
+    console.log('Gantt Chart JavaScript loaded');
+    
+    // Global variables
+    window.draggedTaskId = null;
+    window.ganttDragDropInitialized = false;
+    
+    // Kanban'daki gibi dragged task'ı set et
+    window.setDraggedTask = function(taskId) {
+        console.log('setDraggedTask called with:', taskId);
+        window.draggedTaskId = taskId;
+    };
+    
+    // Kanban'daki gibi drag drop setup
+    window.setupGanttDragAndDrop = () => {
+        if (window.ganttDragDropInitialized) {
+            console.log('Gantt drag and drop already initialized');
+            return;
+        }
+        
+        console.log('Setting up Gantt drag and drop...');
+        
+        // Remove existing listeners to prevent duplicates
+        document.removeEventListener('dragstart', handleGanttDragStart);
+        document.removeEventListener('dragend', handleGanttDragEnd);
+        document.removeEventListener('dragover', handleGanttDragOver);
+        document.removeEventListener('drop', handleGanttDrop);
+        
+        // Add event delegation listeners
+        document.addEventListener('dragstart', handleGanttDragStart, true);
+        document.addEventListener('dragend', handleGanttDragEnd, true);
+        document.addEventListener('dragover', handleGanttDragOver, true);
+        document.addEventListener('drop', handleGanttDrop, true);
+        
+        window.ganttDragDropInitialized = true;
+        console.log('Gantt drag and drop setup complete');
+    };
+    
+    // Event handlers with event delegation
+    function handleGanttDragStart(e) {
+        if (!e.target.classList.contains('task-bar')) return;
+        
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', ''); // Required for Firefox
+        
+        // Add visual feedback
+        e.target.classList.add('dragging');
+        
+        // Store the dragged task ID
+        const taskId = e.target.getAttribute('data-task-id');
+        if (taskId) {
+            window.draggedTaskId = taskId;
+            console.log('Dragging task:', taskId);
+        }
+    }
+    
+    function handleGanttDragEnd(e) {
+        if (!e.target.classList.contains('task-bar')) return;
+        
+        // Remove visual feedback
+        e.target.classList.remove('dragging');
+    }
+    
+    function handleGanttDragOver(e) {
+        if (!e.target.classList.contains('timeline-body')) return;
+        
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        e.target.classList.add('drag-over');
+    }
+    
+    // Debounced drop handler
+    let ganttDropTimeout;
+    function handleGanttDrop(e) {
+        if (!e.target.classList.contains('timeline-body')) return;
+        
+        e.preventDefault();
+        e.target.classList.remove('drag-over');
+        
+        // Debounce to prevent multiple calls
+        clearTimeout(ganttDropTimeout);
+        ganttDropTimeout = setTimeout(() => {
+            if (window.draggedTaskId && window.DotNet) {
+                console.log('Dropping task:', window.draggedTaskId);
+                
+                try {
+                    // Calculate new position
+                    const rect = e.target.getBoundingClientRect();
+                    const mouseX = e.clientX;
+                    const relativeX = mouseX - rect.left;
+                    
+                    console.log('Drop position:', relativeX);
+                    
+                    // Call C# method
+                    window.DotNet.invokeMethodAsync('Altinay.Blazor', 'OnGanttDrop', window.draggedTaskId, relativeX);
+                } catch (err) {
+                    console.error('Error calling OnGanttDrop:', err);
+                }
+            }
+        }, 50); // 50ms debounce
+    }
+    
+    // Timeline başlangıç pozisyonunu al
+    window.getTimelineStartX = function() {
+        const timeline = document.querySelector('#timeline-body');
+        if (timeline) {
+            const rect = timeline.getBoundingClientRect();
+            console.log('Timeline start X:', rect.left);
+            return Math.floor(rect.left);
+        }
+        console.log('Timeline not found, returning 300');
+        return 300; // Fallback değer
+    };
+    
+    // Resize listener fonksiyonu
+    window.addResizeListener = function(taskId) {
+        console.log('Resize listener added for task:', taskId);
+        
+        // Resize handle'a event listener ekle
+        const resizeHandle = document.querySelector(`[data-task-id="${taskId}"] .task-resize-handle`);
+        if (resizeHandle) {
+            resizeHandle.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                console.log('Resize handle clicked for task:', taskId);
+                
+                // Resize işlemi burada yapılabilir
+                // Şimdilik sadece log
+            });
+        }
+    };
+    
+    // Initialize drag and drop when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        window.setupGanttDragAndDrop();
+    });
+</script>
+
+<div class="jira-gantt-container">
+    <!-- Header -->
+    <div class="gantt-header">
+        <div class="header-content">
+            <h3 class="header-title">Timeline</h3>
+            <div class="header-actions">
+                <div class="zoom-controls">
+                    <button class="action-btn @(currentZoom == "day" ? "active" : "")" @onclick="@(() => SetZoom("day"))" title="Daily View">
+                        <i class="fas fa-calendar-day"></i>
+                    </button>
+                    <button class="action-btn @(currentZoom == "week" ? "active" : "")" @onclick="@(() => SetZoom("week"))" title="Weekly View">
+                        <i class="fas fa-calendar-week"></i>
+                    </button>
+                    <button class="action-btn @(currentZoom == "month" ? "active" : "")" @onclick="@(() => SetZoom("month"))" title="Monthly View">
+                        <i class="fas fa-calendar-alt"></i>
+                    </button>
+                </div>
+                <div class="view-controls">
+                    <button class="action-btn primary" title="New Issue" @onclick="@CreateNewIssue">
+                        <i class="fas fa-plus"></i>
+                        New Issue
+                    </button>
+                    <button class="action-btn" title="Fit to Screen" @onclick="@FitToScreen">
+                        <i class="fas fa-expand"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Chart Container -->
-    <div class="chart-container">
-        <canvas id="ganttChart" width="800" height="400"></canvas>
-        
-        <!-- Fallback HTML Gantt Chart -->
-        <div id="htmlGanttChart" style="display: none;">
-            <div class="html-gantt-chart">
-                <div class="gantt-header">
-                    <div class="gantt-task-column">
-                        <h6>Görevler</h6>
-                    </div>
-                    <div class="gantt-timeline">
-                        <div class="timeline-days">
-                            @for (int i = 1; i <= 31; i++)
-                            {
-                                <div class="timeline-day">@i</div>
-                            }
-                        </div>
+    <!-- Gantt Content -->
+    <div class="gantt-content">
+        <!-- Left Panel - Task List -->
+        <div class="task-panel">
+            <div class="task-header">
+                <div class="header-row">
+                    <span class="task-title">Issues</span>
+                    <div class="group-controls">
+                        <select class="group-select" @onchange="@OnGroupChange">
+                            <option value="none">No Grouping</option>
+                            <option value="project">By Project</option>
+                            <option value="assignee">By Assignee</option>
+                            <option value="status">By Status</option>
+                            <option value="epic">By Epic</option>
+                        </select>
                     </div>
                 </div>
-                <div class="gantt-body">
-                    @if (Issues != null && Issues.Any())
+            </div>
+            <div class="task-list">
+                @if (TaskCollection != null && TaskCollection.Any())
+                {
+                    @if (currentGrouping == "none")
                     {
-                        @foreach (var issue in Issues)
+                        @foreach (var task in TaskCollection)
                         {
-                            <div class="gantt-row">
-                                <div class="gantt-task-column">
-                                    <div class="task-info">
-                                        <div class="task-title">@issue.Title</div>
-                                        <div class="task-meta">
-                                            <span class="task-status @GetStatusClass(issue.Status)">@GetStatusText(issue.Status)</span>
-                                        </div>
-                                    </div>
+                            <div class="task-item" @onclick="@(() => SelectTask(task))">
+                                <div class="task-expand">
+                                    <i class="fas fa-chevron-right"></i>
                                 </div>
-                                <div class="gantt-timeline">
-                                    <div class="task-bar-container">
-                                        @if (issue.StartDate.HasValue)
-                                        {
-                                            <div class="task-bar @GetStatusClass(issue.Status)" 
-                                                 style="left: @(issue.StartDate.Value.Day * 20)px; width: @(issue.EstimatedDays * 20)px;">
-                                                <div class="task-progress" style="width: @issue.Progress%"></div>
-                                                <div class="task-label">@issue.Title</div>
-                                            </div>
-                                        }
-                                        else
-                                        {
-                                            <div class="task-bar-placeholder">
-                                                <span class="text-muted">Tarih belirtilmemiş</span>
-                                            </div>
-                                        }
+                                <div class="task-icon">
+                                    <i class="fas fa-bolt" style="color: @GetTaskColor(task);"></i>
+                                </div>
+                                <div class="task-info">
+                                    <div class="task-name">@task.Task</div>
+                                    <div class="task-progress">
+                                        <div class="progress-bar">
+                                            <div class="progress-fill" style="width: @task.Progress%; background-color: @GetTaskColor(task);"></div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -83,586 +217,284 @@
                     }
                     else
                     {
-                        <div class="gantt-row">
-                            <div class="gantt-task-column">
-                                <div class="task-info">
-                                    <div class="task-title text-muted">Henüz görev yok</div>
+                        @foreach (var group in GetGroupedTasks())
+                        {
+                            <div class="task-group">
+                                <div class="group-header" @onclick="@(() => ToggleGroup(group.Key))">
+                                    <i class="fas fa-chevron-@(expandedGroups.Contains(group.Key) ? "down" : "right")"></i>
+                                    <span class="group-title">@group.Key</span>
+                                    <span class="group-count">(@group.Value.Count)</span>
+                                </div>
+                                @if (expandedGroups.Contains(group.Key))
+                                {
+                                    @foreach (var task in group.Value)
+                                    {
+                                        <div class="task-item grouped" @onclick="@(() => SelectTask(task))">
+                                            <div class="task-expand">
+                                                <i class="fas fa-circle" style="font-size: 8px; color: @GetTaskColor(task);"></i>
+                                            </div>
+                                            <div class="task-icon">
+                                                <i class="fas fa-bolt" style="color: @GetTaskColor(task);"></i>
+                                            </div>
+                                            <div class="task-info">
+                                                <div class="task-name">@task.Task</div>
+                                                <div class="task-progress">
+                                                    <div class="progress-bar">
+                                                        <div class="progress-fill" style="width: @task.Progress%; background-color: @GetTaskColor(task);"></div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                }
+                            </div>
+                        }
+                    }
+                }
+                else
+                {
+                    <div class="empty-state">
+                        <i class="fas fa-chart-gantt fa-2x"></i>
+                        <p>No issues found</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Right Panel - Timeline -->
+        <div class="timeline-panel">
+            <!-- Timeline Header -->
+            <div class="timeline-header">
+                <div class="timeline-units" style="min-width: @(GetTimelineWidth())px;">
+                    @if (currentZoom == "day")
+                    {
+                        @for (int i = 0; i < 30; i++)
+                        {
+                            <div class="day-column" style="width: @(dayColumnWidth)px;">
+                                <div class="day-name">@DateTime.Now.AddDays(i).ToString("dd")</div>
+                                <div class="day-month">@DateTime.Now.AddDays(i).ToString("MMM")</div>
+                            </div>
+                        }
+                    }
+                    else if (currentZoom == "week")
+                    {
+                        @for (int i = 0; i < 12; i++)
+                        {
+                            <div class="week-column" style="width: @(weekColumnWidth)px;">
+                                <div class="week-name">Week @(i + 1)</div>
+                                <div class="week-month">@DateTime.Now.AddDays(i * 7).ToString("MMM")</div>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        @for (int i = 0; i < 6; i++)
+                        {
+                            <div class="month-column" style="width: @(monthColumnWidth)px;">
+                                <div class="month-name">@DateTime.Now.AddMonths(i).ToString("MMM").ToUpper()</div>
+                                <div class="sprint-info">
+                                    <span class="sprint-label">Sprint @(i + 1)</span>
                                 </div>
                             </div>
-                            <div class="gantt-timeline">
-                                <div class="task-bar-placeholder">
-                                    <span class="text-muted">Gantt Chart için görevler gerekli</span>
-                                </div>
-                            </div>
-                        </div>
+                        }
                     }
                 </div>
             </div>
-        </div>
-    </div>
 
-    <!-- Task List -->
-    <div class="task-list mt-4">
-        <h5 class="mb-3">
-            <i class="fas fa-list me-2"></i>
-            Görev Detayları
-        </h5>
-        <div class="row">
-            @if (Issues != null && Issues.Any())
-            {
-                @foreach (var issue in Issues)
+            <!-- Timeline Body -->
+            <div id="timeline-body" class="timeline-body" 
+                 @ondragover:preventDefault
+                 @ondrop="@OnTimelineDrop"
+                 @ondragenter="@OnTimelineDragEnter">
+                @if (TaskCollection != null && TaskCollection.Any())
                 {
-                    <div class="col-md-6 col-lg-4 mb-3">
-                        <div class="task-card @GetStatusClass(issue.Status)" @onclick="@(() => SelectTask(issue))">
-                            <div class="task-card-header">
-                                <h6 class="task-title">@issue.Title</h6>
-                                <span class="task-status-badge @GetStatusClass(issue.Status)">@GetStatusText(issue.Status)</span>
-                            </div>
-                            <div class="task-card-body">
-                                <div class="task-meta">
-                                    <div class="meta-item">
-                                        <i class="fas fa-calendar me-1"></i>
-                                        <span>@(issue.StartDate?.ToString("dd.MM.yyyy") ?? "Tarih yok")</span>
-                                    </div>
-                                    <div class="meta-item">
-                                        <i class="fas fa-clock me-1"></i>
-                                        <span>@issue.EstimatedDays gün</span>
-                                    </div>
-                                    <div class="meta-item">
-                                        <i class="fas fa-percentage me-1"></i>
-                                        <span>%@issue.Progress</span>
-                                    </div>
+                    @foreach (var task in TaskCollection)
+                    {
+                        <div class="timeline-row">
+                        <div class="task-bar @(selectedTaskId == task.Id ? "selected" : "")" 
+                             style="left: @(GetTaskPosition(task))px; width: @(GetTaskWidth(task))px; background-color: @GetTaskColor(task);"
+                             data-task-id="@task.Id"
+                             draggable="true"
+                             @ondragstart="@(() => HandleDragStart(task))"
+                             @ondragend="@HandleDragEnd"
+                             @onclick="@(() => SelectTask(task))"
+                             @onclick:stopPropagation="true">
+                                <div class="task-bar-content">
+                                    <span class="task-label">@task.Progress%</span>
+                                    @if (!string.IsNullOrEmpty(task.Dependencies))
+                                    {
+                                        <i class="fas fa-link dependency-icon" title="Has Dependencies"></i>
+                                    }
                                 </div>
-                                <div class="progress mt-2">
-                                    <div class="progress-bar @GetStatusClass(issue.Status)" 
-                                         style="width: @issue.Progress%" 
-                                         role="progressbar" 
-                                         aria-valuenow="@issue.Progress" 
-                                         aria-valuemin="0" 
-                                         aria-valuemax="100">
-                                        @issue.Progress%
-                                    </div>
-                                </div>
+                                <div class="task-resize-handle" @onmousedown="@(() => OnResizeStart(task))"></div>
                             </div>
+                            
+                            <!-- Dependencies Arrows -->
+                            @if (!string.IsNullOrEmpty(task.Dependencies))
+                            {
+                                @foreach (var dependency in GetDependencies(task.Dependencies))
+                                {
+                                    var depTask = TaskCollection.FirstOrDefault(t => t.Id == dependency.TaskId);
+                                    @if (depTask != null)
+                                    {
+                                        <div class="dependency-arrow @dependency.Type.ToString().ToLower()" 
+                                             style="left: @(GetDependencyStartX(depTask, dependency))px; 
+                                                    top: @(GetTaskRowPosition(task))px;"
+                                             title="@depTask.Task → @task.Task (@dependency.Type)">
+                                            <svg width="20" height="20">
+                                                <defs>
+                                                    <marker id="arrowhead-@dependency.Type" markerWidth="10" markerHeight="7" 
+                                                            refX="9" refY="3.5" orient="auto">
+                                                        <polygon points="0 0, 10 3.5, 0 7" fill="@GetDependencyColor(dependency.Type)" />
+                                                    </marker>
+                                                </defs>
+                                                <line x1="0" y1="10" x2="20" y2="10" 
+                                                      stroke="@GetDependencyColor(dependency.Type)" stroke-width="2" 
+                                                      marker-end="url(#arrowhead-@dependency.Type)" />
+                                            </svg>
+                                        </div>
+                                    }
+                                }
+                            }
                         </div>
-                    </div>
+                    }
                 }
-            }
-            else
-            {
-                <div class="col-12">
-                    <div class="text-center text-muted py-5">
-                        <i class="fas fa-chart-gantt fa-3x mb-3"></i>
-                        <h5>Henüz görev yok</h5>
-                        <p>Gantt Chart için görevler gerekli</p>
-                    </div>
-                </div>
-            }
+            </div>
         </div>
     </div>
 </div>
 
-<style>
-    .gantt-chart-container {
-        background: white;
-        border-radius: 12px;
-        box-shadow: 0 4px 16px rgba(0,0,0,0.1);
-        padding: 24px;
-        margin: 20px 0;
-    }
-
-    .gantt-controls {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        padding: 16px 20px;
-        border-radius: 8px;
-        margin-bottom: 20px;
-    }
-
-    .gantt-title h4 {
-        color: white;
-        font-weight: 600;
-    }
-
-    .gantt-actions .btn {
-        background: rgba(255,255,255,0.2);
-        border: 1px solid rgba(255,255,255,0.3);
-        color: white;
-        transition: all 0.3s ease;
-    }
-
-    .gantt-actions .btn:hover {
-        background: rgba(255,255,255,0.3);
-        border-color: rgba(255,255,255,0.5);
-        color: white;
-        transform: translateY(-2px);
-    }
-
-    .chart-container {
-        background: #f8f9fa;
-        border-radius: 8px;
-        padding: 20px;
-        margin-bottom: 20px;
-        border: 1px solid #dee2e6;
-    }
-
-    #ganttChart {
-        max-width: 100%;
-        height: auto;
-    }
-
-    .task-list {
-        background: #f8f9fa;
-        border-radius: 8px;
-        padding: 20px;
-    }
-
-    .task-card {
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        transition: all 0.3s ease;
-        cursor: pointer;
-        border-left: 4px solid #dee2e6;
-    }
-
-    .task-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-    }
-
-    .task-card.todo { border-left-color: #1976d2; }
-    .task-card.inprogress { border-left-color: #f57c00; }
-    .task-card.review { border-left-color: #7b1fa2; }
-    .task-card.done { border-left-color: #388e3c; }
-
-    .task-card-header {
-        padding: 16px 16px 8px 16px;
-        display: flex;
-        justify-content: between;
-        align-items: center;
-    }
-
-    .task-card-body {
-        padding: 8px 16px 16px 16px;
-    }
-
-    .task-title {
-        font-weight: 600;
-        color: #212529;
-        margin: 0;
-        flex: 1;
-    }
-
-    .task-status-badge {
-        padding: 4px 12px;
-        border-radius: 16px;
-        font-size: 11px;
-        font-weight: 600;
-        text-transform: uppercase;
-    }
-
-    .task-status-badge.todo { background: #e3f2fd; color: #1976d2; }
-    .task-status-badge.inprogress { background: #fff3e0; color: #f57c00; }
-    .task-status-badge.review { background: #f3e5f5; color: #7b1fa2; }
-    .task-status-badge.done { background: #e8f5e8; color: #388e3c; }
-
-    .task-meta {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .meta-item {
-        display: flex;
-        align-items: center;
-        font-size: 13px;
-        color: #6c757d;
-    }
-
-    .meta-item i {
-        width: 16px;
-        color: #adb5bd;
-    }
-
-    .progress {
-        height: 8px;
-        background: #e9ecef;
-        border-radius: 4px;
-        overflow: hidden;
-    }
-
-    .progress-bar {
-        height: 100%;
-        border-radius: 4px;
-        transition: width 0.3s ease;
-        font-size: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-weight: 600;
-    }
-
-    .progress-bar.todo { background: linear-gradient(90deg, #1976d2, #42a5f5); }
-    .progress-bar.inprogress { background: linear-gradient(90deg, #f57c00, #ffb74d); }
-    .progress-bar.review { background: linear-gradient(90deg, #7b1fa2, #ba68c8); }
-    .progress-bar.done { background: linear-gradient(90deg, #388e3c, #66bb6a); }
-
-    /* HTML Gantt Chart Styles */
-    .html-gantt-chart {
-        background: white;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-        overflow: hidden;
-    }
-
-    .gantt-header {
-        display: flex;
-        background: #f8f9fa;
-        border-bottom: 2px solid #dee2e6;
-    }
-
-    .gantt-task-column {
-        width: 300px;
-        padding: 16px;
-        border-right: 1px solid #dee2e6;
-        background: #f8f9fa;
-    }
-
-    .gantt-timeline {
-        flex: 1;
-        overflow-x: auto;
-    }
-
-    .timeline-days {
-        display: flex;
-        gap: 2px;
-        padding: 16px;
-    }
-
-    .timeline-day {
-        width: 30px;
-        height: 30px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 12px;
-        color: #6c757d;
-        background: #e9ecef;
-        border-radius: 4px;
-    }
-
-    .gantt-body {
-        max-height: 600px;
-        overflow-y: auto;
-    }
-
-    .gantt-row {
-        display: flex;
-        border-bottom: 1px solid #dee2e6;
-        min-height: 60px;
-    }
-
-    .gantt-row:hover {
-        background: #f8f9fa;
-    }
-
-    .task-info {
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        height: 100%;
-    }
-
-    .task-title {
-        font-weight: 600;
-        color: #212529;
-        margin-bottom: 4px;
-    }
-
-    .task-meta {
-        display: flex;
-        gap: 8px;
-    }
-
-    .task-status {
-        padding: 2px 8px;
-        border-radius: 12px;
-        font-size: 11px;
-        font-weight: 500;
-    }
-
-    .task-status.todo { background: #e3f2fd; color: #1976d2; }
-    .task-status.inprogress { background: #fff3e0; color: #f57c00; }
-    .task-status.review { background: #f3e5f5; color: #7b1fa2; }
-    .task-status.done { background: #e8f5e8; color: #388e3c; }
-
-    .task-bar-container {
-        position: relative;
-        height: 100%;
-        padding: 8px 16px;
-    }
-
-    .task-bar {
-        position: absolute;
-        top: 50%;
-        transform: translateY(-50%);
-        height: 24px;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        padding: 0 8px;
-        font-size: 12px;
-        font-weight: 500;
-        color: white;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-    }
-
-    .task-bar.todo { background: #1976d2; }
-    .task-bar.inprogress { background: #f57c00; }
-    .task-bar.review { background: #7b1fa2; }
-    .task-bar.done { background: #388e3c; }
-
-    .task-progress {
-        position: absolute;
-        top: 0;
-        left: 0;
-        height: 100%;
-        background: rgba(255,255,255,0.3);
-        border-radius: 12px;
-        transition: width 0.3s ease;
-    }
-
-    .task-label {
-        position: relative;
-        z-index: 1;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .task-bar-placeholder {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        height: 100%;
-        color: #6c757d;
-        font-style: italic;
-    }
-
-    /* Responsive */
-    @@media (max-width: 768px) {
-        .gantt-chart-container {
-            padding: 16px;
-            margin: 10px 0;
-        }
-        
-        .gantt-controls {
-            padding: 12px 16px;
-        }
-        
-        .chart-container {
-            padding: 16px;
-        }
-        
-        .task-list {
-            padding: 16px;
-        }
-    }
-</style>
+<!-- New Issue Modal -->
+<IssueCreateModal @ref="_createModal" OnSaved="OnIssueCreated" />
 
 @code {
     [Parameter] public List<TrackingIssueDto>? Issues { get; set; }
     [Parameter] public EventCallback<TrackingIssueDto> OnTaskSelected { get; set; }
+    [Parameter] public EventCallback OnIssueCreated { get; set; }
+    
+    private IssueCreateModal? _createModal;
 
-    private TrackingIssueDto? selectedTask;
+    private List<GanttTaskData> TaskCollection = new List<GanttTaskData>();
+    private string currentZoom = "week";
+    private string selectedTaskId = "";
+    private bool isDragging = false;
+    private bool isResizing = false;
+    private GanttTaskData? draggedTask = null;
+    private GanttTaskData? resizedTask = null;
+    
+    // Grouping
+    private string currentGrouping = "none";
+    private HashSet<string> expandedGroups = new HashSet<string>();
+    
+    // Column widths based on zoom level
+    private int dayColumnWidth = 30;
+    private int weekColumnWidth = 80;
+    private int monthColumnWidth = 150;
 
-    protected override async Task OnAfterRenderAsync(bool firstRender)
+    protected override void OnInitialized()
     {
-        if (firstRender)
-        {
-            await InitializeChart();
-        }
+        PrepareGanttData();
     }
 
-    /// <summary>
-    /// Chart.js ile Gantt Chart'ı başlat
-    /// </summary>
-    private async Task InitializeChart()
+    private void PrepareGanttData()
     {
-        if (Issues == null || !Issues.Any()) return;
-
-        try
-        {
-            // Önce script'leri yükle
-            await LoadScripts();
-            
-            // Chart'ı başlat
-            var chartData = PrepareChartData();
-            await JSRuntime.InvokeVoidAsync("initializeGanttChart", "ganttChart", chartData);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Chart initialization error: {ex.Message}");
-            // Fallback: HTML Gantt Chart'ı göster
-            await ShowHtmlGanttChart();
-        }
-    }
-
-    /// <summary>
-    /// HTML Gantt Chart'ı göster (fallback)
-    /// </summary>
-    private async Task ShowHtmlGanttChart()
-    {
-        await JSRuntime.InvokeVoidAsync("showHtmlGanttChart");
-    }
-
-    /// <summary>
-    /// Gerekli script'leri dinamik yükle
-    /// </summary>
-    private async Task LoadScripts()
-    {
-        // Chart.js'i yükle
-        await JSRuntime.InvokeVoidAsync("loadScript", "https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.min.js");
+        TaskCollection.Clear();
         
-        // Date adapter'ı yükle
-        await JSRuntime.InvokeVoidAsync("loadScript", "https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js");
-        
-        // Kendi script'imizi yükle
-        await JSRuntime.InvokeVoidAsync("loadScript", "/js/gantt-chart.js");
-    }
-
-    /// <summary>
-    /// Chart.js için veri hazırla
-    /// </summary>
-    private object PrepareChartData()
-    {
-        var datasets = new List<object>();
-        var labels = new List<string>();
-
-        if (Issues != null)
+        if (Issues != null && Issues.Any())
         {
             foreach (var issue in Issues)
             {
-                labels.Add(issue.Title);
+                // StartDate ve EndDate'i doğru hesapla - GERÇEK TARİHLERİ KULLAN
+                var startDate = issue.StartDate ?? DateTime.Now.AddDays(new Random().Next(0, 5));
+                var endDate = issue.DueDate ?? startDate.AddDays(issue.EstimatedDays);
                 
-                if (issue.StartDate.HasValue)
+                // Eğer DueDate yoksa, EstimatedDays'e göre hesapla
+                if (issue.DueDate == null)
                 {
-                    var startDate = issue.StartDate.Value;
-                    var endDate = startDate.AddDays(issue.EstimatedDays);
-                    
-                    datasets.Add(new
-                    {
-                        label = issue.Title,
-                        data = new[]
-                        {
-                            new { x = startDate.ToString("yyyy-MM-dd"), y = 0 },
-                            new { x = endDate.ToString("yyyy-MM-dd"), y = 0 }
-                        },
-                        backgroundColor = GetStatusColor(issue.Status),
-                        borderColor = GetStatusColor(issue.Status),
-                        borderWidth = 2,
-                        pointRadius = 0,
-                        pointHoverRadius = 5,
-                        fill = false,
-                        tension = 0
-                    });
+                    endDate = startDate.AddDays(issue.EstimatedDays);
                 }
+                
+                // Tarihleri log'la
+                Console.WriteLine($"Task: {issue.Title}, Start: {startDate:dd/MM/yyyy}, End: {endDate:dd/MM/yyyy}, Duration: {(endDate - startDate).Days} days");
+                
+                TaskCollection.Add(new GanttTaskData
+                {
+                    Id = issue.Id.ToString(),
+                    Task = issue.Title,
+                    StartDate = startDate,
+                    EndDate = endDate,
+                    Duration = (int)(endDate - startDate).TotalDays,
+                    Progress = CalculateProgress(issue.Status), // Status'a göre progress hesapla
+                    Status = GetStatusText(issue.Status)
+                });
             }
         }
-
-        return new
+        else
         {
-            type = "scatter",
-            data = new
+            // Örnek veri - farklı uzunluklarda ve status'a göre progress
+            TaskCollection.Add(new GanttTaskData
             {
-                labels = labels.ToArray(),
-                datasets = datasets.ToArray()
-            },
-            options = new
+                Id = "1",
+                Task = "Kısa Task",
+                StartDate = DateTime.Now,
+                EndDate = DateTime.Now.AddDays(3),
+                Duration = 3,
+                Progress = 50, // In Progress = 50%
+                Status = "In Progress"
+            });
+            
+            TaskCollection.Add(new GanttTaskData
             {
-                responsive = true,
-                maintainAspectRatio = false,
-                scales = new
-                {
-                    x = new
-                    {
-                        type = "time",
-                        time = new
-                        {
-                            unit = "day",
-                            displayFormats = new
-                            {
-                                day = "MMM dd"
-                            }
-                        },
-                        title = new
-                        {
-                            display = true,
-                            text = "Tarih"
-                        }
-                    },
-                    y = new
-                    {
-                        display = false
-                    }
-                },
-                plugins = new
-                {
-                    legend = new
-                    {
-                        display = false
-                    },
-                    tooltip = new
-                    {
-                        callbacks = new
-                        {
-                            title = "function(context) { return context[0].dataset.label; }",
-                            label = "function(context) { return 'Başlangıç: ' + context.parsed.x; }"
-                        }
-                    }
-                }
-            }
-        };
+                Id = "2",
+                Task = "Uzun Task",
+                StartDate = DateTime.Now.AddDays(1),
+                EndDate = DateTime.Now.AddDays(15),
+                Duration = 14,
+                Progress = 0, // To Do = 0%
+                Status = "To Do"
+            });
+            
+            TaskCollection.Add(new GanttTaskData
+            {
+                Id = "3",
+                Task = "Orta Task",
+                StartDate = DateTime.Now.AddDays(2),
+                EndDate = DateTime.Now.AddDays(8),
+                Duration = 6,
+                Progress = 75, // Review = 75%
+                Status = "Review"
+            });
+            
+            TaskCollection.Add(new GanttTaskData
+            {
+                Id = "4",
+                Task = "Tamamlanan Task",
+                StartDate = DateTime.Now.AddDays(3),
+                EndDate = DateTime.Now.AddDays(5),
+                Duration = 2,
+                Progress = 100, // Done = 100%
+                Status = "Done"
+            });
+        }
     }
 
-    /// <summary>
-    /// Görev seçildiğinde
-    /// </summary>
-    private async Task SelectTask(TrackingIssueDto task)
+    private async Task SelectTask(GanttTaskData task)
     {
-        selectedTask = task;
-        await OnTaskSelected.InvokeAsync(task);
+        selectedTaskId = task.Id;
         StateHasChanged();
-    }
-
-    /// <summary>
-    /// Chart'ı yenile
-    /// </summary>
-    private async Task RefreshChart()
-    {
-        await InitializeChart();
-    }
-
-    /// <summary>
-    /// Chart'ı dışa aktar
-    /// </summary>
-    private async Task ExportChart()
-    {
-        await JSRuntime.InvokeVoidAsync("exportChart", "ganttChart");
-    }
-
-    private string GetStatusClass(IssueStatus status)
-    {
-        return status switch
-        {
-            IssueStatus.ToDo => "todo",
-            IssueStatus.InProgress => "inprogress",
-            IssueStatus.InReview => "review",
-            IssueStatus.Done => "done",
-            _ => "todo"
-        };
+        
+        // Task seçildiğinde sadece highlight yap, Kanban'a gitme
+        Console.WriteLine($"Task selected: {task.Task}");
+        
+        // Eğer gerçekten Kanban'a gitmek istiyorsan, bu satırı aç:
+        // if (Issues != null && Issues.Any())
+        // {
+        //     var selectedIssue = Issues.FirstOrDefault(i => i.Id.ToString() == task.Id);
+        //     if (selectedIssue != null)
+        //     {
+        //         await OnTaskSelected.InvokeAsync(selectedIssue);
+        //     }
+        // }
     }
 
     private string GetStatusText(IssueStatus status)
@@ -671,21 +503,898 @@
         {
             IssueStatus.ToDo => "To Do",
             IssueStatus.InProgress => "In Progress",
-            IssueStatus.InReview => "Review",
+            IssueStatus.InReview => "In Review",
             IssueStatus.Done => "Done",
             _ => "To Do"
         };
     }
 
-    private string GetStatusColor(IssueStatus status)
+    private string GetTaskColor(GanttTaskData task)
+    {
+        return task.Status switch
+        {
+            "Done" => "#36B37E",
+            "In Progress" => "#0052CC",
+            "In Review" => "#FFAB00",
+            _ => "#5E6C84"
+        };
+    }
+
+    private int GetTaskPosition(GanttTaskData task)
+    {
+        var daysDiff = (task.StartDate - DateTime.Now).Days;
+        return Math.Max(0, daysDiff * 30); // 30px per day
+    }
+
+    private int GetTaskWidth(GanttTaskData task)
+    {
+        var columnWidth = currentZoom switch
+        {
+            "day" => dayColumnWidth,
+            "week" => weekColumnWidth,
+            _ => monthColumnWidth
+        };
+        
+        // Duration'ı StartDate ve EndDate'den hesapla
+        var actualDuration = (task.EndDate - task.StartDate).Days;
+        
+        var durationInUnits = currentZoom switch
+        {
+            "day" => Math.Max(1, actualDuration),
+            "week" => Math.Max(1, actualDuration / 7),
+            _ => Math.Max(1, actualDuration / 30)
+        };
+        
+        return durationInUnits * columnWidth;
+    }
+
+    // Zoom Functions
+    private void SetZoom(string zoom)
+    {
+        currentZoom = zoom;
+        StateHasChanged();
+    }
+
+    private void FitToScreen()
+    {
+        // Auto-fit logic
+        currentZoom = "week";
+        StateHasChanged();
+    }
+
+    private int GetTimelineWidth()
+    {
+        return currentZoom switch
+        {
+            "day" => 30 * dayColumnWidth,
+            "week" => 12 * weekColumnWidth,
+            _ => 6 * monthColumnWidth
+        };
+    }
+
+    // Drag & Drop Functions (Kanban'dan kopyalandı)
+    private async Task HandleDragStart(GanttTaskData task)
+    {
+        draggedTask = task;
+        isDragging = true;
+        selectedTaskId = task.Id;
+        Console.WriteLine($"Drag started for task: {task.Task}");
+        
+        // Kanban'daki gibi JavaScript'e gönder
+        await JSRunTime.InvokeVoidAsync("setDraggedTask", task.Id);
+    }
+
+    [JSInvokable]
+    public static async Task OnGanttDrop(string taskId, double relativeX)
+    {
+        // Get the current component instance
+        var component = GetCurrentComponent();
+        if (component != null)
+        {
+            await component.OnGanttDropInstance(taskId, relativeX);
+        }
+    }
+
+    public async Task OnGanttDropInstance(string taskId, double relativeX)
+    {
+        try
+        {
+            Console.WriteLine($"OnGanttDrop called: taskId={taskId}, relativeX={relativeX}");
+            
+            // Find the task
+            var task = TaskCollection.FirstOrDefault(t => t.Id == taskId);
+            if (task != null)
+            {
+                // Update task position
+                await UpdateTaskPosition(task, (int)relativeX);
+                Console.WriteLine($"Task {task.Task} moved to position {relativeX}");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in OnGanttDrop: {ex.Message}");
+        }
+    }
+
+    private static GanttChart? _currentInstance;
+    
+    public static GanttChart? GetCurrentComponent()
+    {
+        return _currentInstance;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _currentInstance = this;
+        PrepareGanttData();
+        await JSRunTime.InvokeVoidAsync("setupGanttDragAndDrop");
+    }
+
+    private async Task HandleDragEnd(DragEventArgs e)
+    {
+        isDragging = false;
+        draggedTask = null;
+        Console.WriteLine("Drag ended");
+        
+        // Drag end işlemi burada yapılabilir
+        await Task.CompletedTask;
+    }
+
+    private async Task OnTimelineDragOver(DragEventArgs e)
+    {
+        // PreventDefault() yok, sadece log
+        Console.WriteLine("Drag over timeline");
+        await Task.CompletedTask;
+    }
+
+    private async Task OnTimelineDragEnter(DragEventArgs e)
+    {
+        // PreventDefault() yok, sadece log
+        Console.WriteLine("Drag entered timeline");
+        await Task.CompletedTask;
+    }
+
+    private async Task OnTimelineDrop(DragEventArgs e)
+    {
+        // PreventDefault() yok, sadece log
+        Console.WriteLine($"OnTimelineDrop called, draggedTask: {draggedTask?.Task}");
+        
+        if (draggedTask != null)
+        {
+            try
+            {
+                // Mouse pozisyonunu al
+                var mouseX = e.ClientX;
+                Console.WriteLine($"Drop at mouse X: {mouseX}");
+                
+                // Timeline'ın gerçek başlangıç pozisyonunu hesapla
+                var timelineStart = await JSRunTime.InvokeAsync<int>("getTimelineStartX");
+                var relativeX = mouseX - timelineStart;
+                
+                Console.WriteLine($"Timeline start: {timelineStart}, Relative X: {relativeX}");
+                
+                if (relativeX > 0)
+                {
+                    // Task'ın pozisyonunu güncelle
+                    await UpdateTaskPosition(draggedTask, (int)relativeX);
+                    Console.WriteLine($"Task {draggedTask.Task} moved to position {relativeX}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error updating task position: {ex.Message}");
+            }
+        }
+        
+        draggedTask = null;
+        StateHasChanged();
+    }
+
+    private async Task<int?> CalculateNewTaskPosition(int mouseX)
+    {
+        try
+        {
+            // Timeline'ın başlangıç pozisyonunu al
+            var timelineStart = await JSRunTime.InvokeAsync<int>("getTimelineStartX");
+            var relativeX = mouseX - timelineStart;
+            
+            Console.WriteLine($"Mouse X: {mouseX}, Timeline Start: {timelineStart}, Relative X: {relativeX}");
+            
+            // Pozitif ise timeline içinde
+            if (relativeX >= 0)
+            {
+                return relativeX;
+            }
+            
+            return null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"CalculateNewTaskPosition error: {ex.Message}");
+            return null;
+        }
+    }
+
+    private async Task UpdateTaskPosition(GanttTaskData task, int newPosition)
+    {
+        try
+        {
+            Console.WriteLine($"Updating task {task.Task} to position {newPosition}");
+            
+            // Pixel'i gün olarak çevir - daha doğru hesaplama
+            var daysPerPixel = GetDaysPerPixel(); // Timeline zoom'a göre dinamik
+            var daysToAdd = newPosition * daysPerPixel;
+            
+            // Task'ın mevcut süresini koru
+            var duration = (task.EndDate - task.StartDate).Days;
+            
+            // Yeni başlangıç tarihi hesapla - timeline'ın başlangıcından itibaren
+            var timelineStartDate = GetTimelineStartDate();
+            var newStartDate = timelineStartDate.AddDays(daysToAdd);
+            var newEndDate = newStartDate.AddDays(duration);
+            
+            // Task'ı güncelle
+            task.StartDate = newStartDate;
+            task.EndDate = newEndDate;
+            
+            Console.WriteLine($"Task {task.Task} new dates: {task.StartDate:dd/MM/yyyy} - {task.EndDate:dd/MM/yyyy}");
+            Console.WriteLine($"Days per pixel: {daysPerPixel}, Days to add: {daysToAdd}");
+            
+            // Database'i güncelle (placeholder)
+            await UpdateTaskInDatabase(task);
+            
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating task position: {ex.Message}");
+        }
+    }
+
+    private DateTime GetTimelineStartDate()
+    {
+        // Timeline'ın başlangıç tarihi - şu anki tarihten 30 gün önce
+        return DateTime.Now.AddDays(-30);
+    }
+
+    private DateTime CalculateDateFromPosition(int position)
+    {
+        // Timeline'daki pozisyonu tarihe çevir
+        var daysPerPixel = GetDaysPerPixel();
+        var daysFromStart = position / daysPerPixel;
+        var timelineStart = GetTimelineStartDate();
+        
+        return timelineStart.AddDays(daysFromStart);
+    }
+
+    private double GetDaysPerPixel()
+    {
+        return currentZoom switch
+        {
+            "day" => 1.0 / dayColumnWidth,
+            "week" => 7.0 / weekColumnWidth,
+            "month" => 30.0 / monthColumnWidth,
+            _ => 1.0 / dayColumnWidth
+        };
+    }
+
+    private void OnTaskMouseDown(GanttTaskData task)
+    {
+        selectedTaskId = task.Id;
+        StateHasChanged();
+    }
+
+    private async Task OnResizeStart(GanttTaskData task)
+    {
+        resizedTask = task;
+        isResizing = true;
+        Console.WriteLine($"Resize started for task: {task.Task}");
+        
+        // Resize işlemi için JavaScript event listener ekle - HATA DÜZELTİLDİ
+        try
+        {
+            await JSRunTime.InvokeVoidAsync("addResizeListener", task.Id);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"JavaScript error: {ex.Message}");
+        }
+        
+        await Task.CompletedTask;
+    }
+
+    // Progress Calculation based on Status
+    private int CalculateProgress(IssueStatus status)
     {
         return status switch
         {
-            IssueStatus.ToDo => "#1976d2",
-            IssueStatus.InProgress => "#f57c00",
-            IssueStatus.InReview => "#7b1fa2",
-            IssueStatus.Done => "#388e3c",
-            _ => "#1976d2"
+            IssueStatus.ToDo => 0,
+            IssueStatus.InProgress => 50,
+            IssueStatus.InReview => 75,
+            IssueStatus.Done => 100,
+            _ => 0
         };
     }
+
+    // Update Task in Database (Placeholder for future implementation)
+    private async Task UpdateTaskInDatabase(GanttTaskData task)
+    {
+        // TODO: Implement database update when service is available
+        await Task.CompletedTask;
+        Console.WriteLine($"Task updated: {task.Task}");
+    }
+
+    private IssueStatus GetStatusFromText(string statusText)
+    {
+        return statusText switch
+        {
+            "To Do" => IssueStatus.ToDo,
+            "In Progress" => IssueStatus.InProgress,
+            "In Review" => IssueStatus.InReview,
+            "Done" => IssueStatus.Done,
+            _ => IssueStatus.ToDo
+        };
+    }
+
+    // Dependencies Functions
+    private List<DependencyModel> GetDependencies(string dependencies)
+    {
+        if (string.IsNullOrEmpty(dependencies))
+            return new List<DependencyModel>();
+        
+        var result = new List<DependencyModel>();
+        var depStrings = dependencies.Split(',');
+        
+        foreach (var depString in depStrings)
+        {
+            var parts = depString.Trim().Split(':');
+            var taskId = parts[0];
+            var type = parts.Length > 1 ? parts[1] : "FS";
+            
+            result.Add(new DependencyModel
+            {
+                TaskId = taskId,
+                Type = GetDependencyType(type)
+            });
+        }
+        
+        return result;
+    }
+
+    private DependencyType GetDependencyType(string type)
+    {
+        return type.ToUpper() switch
+        {
+            "FS" => DependencyType.FinishToStart,
+            "SS" => DependencyType.StartToStart,
+            "FF" => DependencyType.FinishToFinish,
+            "SF" => DependencyType.StartToFinish,
+            _ => DependencyType.FinishToStart
+        };
+    }
+
+    private int GetDependencyStartX(GanttTaskData depTask, DependencyModel dependency)
+    {
+        return dependency.Type switch
+        {
+            DependencyType.FinishToStart => GetTaskPosition(depTask) + GetTaskWidth(depTask),
+            DependencyType.StartToStart => GetTaskPosition(depTask),
+            DependencyType.FinishToFinish => GetTaskPosition(depTask) + GetTaskWidth(depTask),
+            DependencyType.StartToFinish => GetTaskPosition(depTask),
+            _ => GetTaskPosition(depTask) + GetTaskWidth(depTask)
+        };
+    }
+
+    private string GetDependencyColor(DependencyType type)
+    {
+        return type switch
+        {
+            DependencyType.FinishToStart => "#0052CC",  // Mavi
+            DependencyType.StartToStart => "#36B37E",   // Yeşil
+            DependencyType.FinishToFinish => "#FFAB00", // Sarı
+            DependencyType.StartToFinish => "#FF5630",   // Kırmızı
+            _ => "#0052CC"
+        };
+    }
+
+    private int GetTaskRowPosition(GanttTaskData task)
+    {
+        var index = TaskCollection.IndexOf(task);
+        return index * 40; // 40px per row
+    }
+
+    // Grouping Functions
+    private void OnGroupChange(ChangeEventArgs e)
+    {
+        currentGrouping = e.Value?.ToString() ?? "none";
+        expandedGroups.Clear();
+        StateHasChanged();
+    }
+
+    private void ToggleGroup(string groupKey)
+    {
+        if (expandedGroups.Contains(groupKey))
+            expandedGroups.Remove(groupKey);
+        else
+            expandedGroups.Add(groupKey);
+        
+        StateHasChanged();
+    }
+
+    private Dictionary<string, List<GanttTaskData>> GetGroupedTasks()
+    {
+        if (currentGrouping == "none")
+            return new Dictionary<string, List<GanttTaskData>>();
+
+        return currentGrouping switch
+        {
+            "project" => TaskCollection.GroupBy(t => t.Category ?? "No Project").ToDictionary(g => g.Key, g => g.ToList()),
+            "assignee" => TaskCollection.GroupBy(t => t.Assignee ?? "Unassigned").ToDictionary(g => g.Key, g => g.ToList()),
+            "status" => TaskCollection.GroupBy(t => t.Status).ToDictionary(g => g.Key, g => g.ToList()),
+            "epic" => TaskCollection.GroupBy(t => t.Initiative ?? "No Epic").ToDictionary(g => g.Key, g => g.ToList()),
+            _ => new Dictionary<string, List<GanttTaskData>>()
+        };
+    }
+
+    // Overdue Detection
+    private bool IsOverdue(GanttTaskData task)
+    {
+        return task.EndDate < DateTime.Now && task.Status != "Done";
+    }
+
+    private bool IsNearDeadline(GanttTaskData task)
+    {
+        var daysUntilDeadline = (task.EndDate - DateTime.Now).Days;
+        return daysUntilDeadline <= 3 && daysUntilDeadline >= 0 && task.Status != "Done";
+    }
+
+    // Critical Path Detection (Simplified)
+    private bool IsCriticalPath(GanttTaskData task)
+    {
+        // Simplified: Tasks with dependencies are considered critical
+        return !string.IsNullOrEmpty(task.Dependencies);
+    }
+
+    // New Issue Creation
+    private async Task CreateNewIssue()
+    {
+        if (_createModal != null)
+        {
+            await _createModal.ShowAsync();
+        }
+    }
 }
+
+<style>
+    .jira-gantt-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+
+    .gantt-header {
+        background: #f4f5f7;
+        border-bottom: 1px solid #dfe1e6;
+        padding: 16px 20px;
+    }
+
+    .header-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .header-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #172b4d;
+        margin: 0;
+    }
+
+    .header-actions {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+    }
+
+    .zoom-controls {
+        display: flex;
+        gap: 4px;
+        background: #f4f5f7;
+        border-radius: 6px;
+        padding: 4px;
+    }
+
+    .view-controls {
+        display: flex;
+        gap: 8px;
+    }
+
+    .action-btn {
+        background: white;
+        border: 1px solid #dfe1e6;
+        border-radius: 4px;
+        padding: 8px 12px;
+        cursor: pointer;
+        color: #5e6c84;
+        transition: all 0.2s;
+    }
+
+    .action-btn:hover {
+        background: #f4f5f7;
+        border-color: #0052cc;
+        color: #0052cc;
+    }
+
+    .action-btn.active {
+        background: #0052cc;
+        border-color: #0052cc;
+        color: white;
+    }
+
+    .action-btn.active:hover {
+        background: #0040a3;
+        border-color: #0040a3;
+    }
+
+    .action-btn.primary {
+        background: #0052cc;
+        border-color: #0052cc;
+        color: white;
+        font-weight: 600;
+    }
+
+    .action-btn.primary:hover {
+        background: #0040a3;
+        border-color: #0040a3;
+    }
+
+    .gantt-content {
+        display: flex;
+        height: 500px;
+    }
+
+    /* Task Panel */
+    .task-panel {
+        width: 300px;
+        border-right: 1px solid #dfe1e6;
+        background: white;
+    }
+
+    .task-header {
+        background: #f4f5f7;
+        padding: 12px 16px;
+        border-bottom: 1px solid #dfe1e6;
+    }
+
+    .header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .task-title {
+        font-weight: 600;
+        color: #172b4d;
+        font-size: 14px;
+    }
+
+    .group-controls {
+        display: flex;
+        align-items: center;
+    }
+
+    .group-select {
+        background: white;
+        border: 1px solid #dfe1e6;
+        border-radius: 4px;
+        padding: 4px 8px;
+        font-size: 12px;
+        color: #5e6c84;
+    }
+
+    .task-list {
+        overflow-y: auto;
+        height: calc(100% - 48px);
+    }
+
+    .task-item {
+        display: flex;
+        align-items: center;
+        padding: 8px 16px;
+        border-bottom: 1px solid #f4f5f7;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .task-item:hover {
+        background-color: #f4f5f7;
+    }
+
+    .task-item.grouped {
+        padding-left: 24px;
+        border-left: 2px solid #dfe1e6;
+    }
+
+    .task-group {
+        border-bottom: 1px solid #f4f5f7;
+    }
+
+    .group-header {
+        display: flex;
+        align-items: center;
+        padding: 8px 16px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #dfe1e6;
+        cursor: pointer;
+        font-weight: 600;
+        color: #172b4d;
+        font-size: 13px;
+    }
+
+    .group-header:hover {
+        background: #f4f5f7;
+    }
+
+    .group-title {
+        margin-left: 8px;
+        flex: 1;
+    }
+
+    .group-count {
+        color: #5e6c84;
+        font-size: 11px;
+        font-weight: normal;
+    }
+
+    .task-expand {
+        width: 20px;
+        color: #5e6c84;
+        font-size: 12px;
+    }
+
+    .task-icon {
+        width: 20px;
+        margin-right: 8px;
+    }
+
+    .task-info {
+        flex: 1;
+    }
+
+    .task-name {
+        font-size: 14px;
+        color: #172b4d;
+        margin-bottom: 4px;
+    }
+
+    .task-progress {
+        width: 100%;
+    }
+
+    .progress-bar {
+        width: 100%;
+        height: 4px;
+        background-color: #f4f5f7;
+        border-radius: 2px;
+        overflow: hidden;
+    }
+
+    .progress-fill {
+        height: 100%;
+        border-radius: 2px;
+        transition: width 0.3s;
+    }
+
+    /* Timeline Panel */
+    .timeline-panel {
+        flex: 1;
+        overflow-x: auto;
+    }
+
+    .timeline-header {
+        background: #f4f5f7;
+        border-bottom: 1px solid #dfe1e6;
+        padding: 12px 0;
+    }
+
+    .timeline-units {
+        display: flex;
+    }
+
+    .day-column, .week-column, .month-column {
+        text-align: center;
+        border-right: 1px solid #dfe1e6;
+        padding: 8px 4px;
+    }
+
+    .day-column {
+        min-width: 30px;
+    }
+
+    .week-column {
+        min-width: 80px;
+    }
+
+    .month-column {
+        min-width: 150px;
+    }
+
+    .month-name {
+        font-weight: 600;
+        color: #172b4d;
+        font-size: 14px;
+        margin-bottom: 4px;
+    }
+
+    .sprint-info {
+        font-size: 12px;
+        color: #5e6c84;
+    }
+
+    .sprint-label {
+        background: #0052cc;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 11px;
+    }
+
+    .timeline-body {
+        overflow-y: auto;
+        height: calc(100% - 60px);
+    }
+
+    .timeline-row {
+        height: 40px;
+        border-bottom: 1px solid #f4f5f7;
+        position: relative;
+        cursor: pointer;
+    }
+
+    .timeline-row:hover {
+        background-color: #f4f5f7;
+    }
+
+    .task-bar {
+        position: absolute;
+        height: 20px;
+        border-radius: 4px;
+        top: 50%;
+        transform: translateY(-50%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 60px;
+        cursor: move;
+        transition: all 0.2s;
+        border: 2px solid transparent;
+    }
+
+    .task-bar:hover {
+        border-color: rgba(255,255,255,0.5);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+
+    .task-bar.selected {
+        border-color: #0052cc;
+        box-shadow: 0 0 0 2px rgba(0,82,204,0.3);
+    }
+
+    .task-resize-handle {
+        position: absolute;
+        right: -4px;
+        top: 0;
+        width: 8px;
+        height: 100%;
+        cursor: ew-resize;
+        background: rgba(255,255,255,0.3);
+        border-radius: 0 4px 4px 0;
+    }
+
+    .task-resize-handle:hover {
+        background: rgba(255,255,255,0.6);
+    }
+
+    .dependency-icon {
+        margin-left: 4px;
+        font-size: 10px;
+        opacity: 0.7;
+    }
+
+    .dependency-arrow {
+        position: absolute;
+        pointer-events: none;
+        z-index: 10;
+    }
+
+    .dependency-arrow svg {
+        filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1));
+    }
+
+    .dependency-arrow.finishtostart {
+        border-left: 2px solid #0052CC;
+    }
+
+    .dependency-arrow.starttostart {
+        border-left: 2px solid #36B37E;
+    }
+
+    .dependency-arrow.finishtofinish {
+        border-left: 2px solid #FFAB00;
+    }
+
+    .dependency-arrow.starttofinish {
+        border-left: 2px solid #FF5630;
+    }
+
+    .task-bar-content {
+        color: white;
+        font-size: 12px;
+        font-weight: 600;
+        text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+    }
+
+    .task-bar[draggable="true"] {
+        cursor: move;
+    }
+
+    .task-bar[draggable="true"]:active {
+        cursor: grabbing;
+    }
+
+    .task-bar[draggable="true"]:hover {
+        cursor: move;
+    }
+
+    .task-bar.dragging {
+        opacity: 0.7;
+        transform: rotate(2deg);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+    }
+
+    .timeline-body.drag-over {
+        background-color: rgba(0, 82, 204, 0.1);
+        border: 2px dashed #0052cc;
+    }
+
+    .task-label {
+        font-size: 11px;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #5e6c84;
+    }
+
+    .empty-state i {
+        margin-bottom: 16px;
+    }
+
+    /* Responsive */
+    @@media (max-width: 768px) {
+        .gantt-content {
+            flex-direction: column;
+            height: auto;
+        }
+        
+        .task-panel {
+            width: 100%;
+            height: 300px;
+        }
+        
+        .timeline-panel {
+            height: 300px;
+        }
+        
+        .timeline-months {
+            min-width: 600px;
+        }
+        
+        .month-column {
+            width: 200px;
+        }
+    }
+</style>

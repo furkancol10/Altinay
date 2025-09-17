@@ -121,8 +121,10 @@ public class AltinayBlazorModule : AbpModule
         ConfigureAuthentication(context);
         ConfigureUrls(configuration);
         ConfigureBundles();
+        
         ConfigureAutoMapper();
         ConfigureVirtualFileSystem(hostingEnvironment);
+        
         ConfigureSwaggerServices(context.Services);
         ConfigureAutoApiControllers();
         ConfigureBlazorise(context);
@@ -173,6 +175,7 @@ public class AltinayBlazorModule : AbpModule
             );
         });
     }
+
 
     private void ConfigureVirtualFileSystem(IWebHostEnvironment hostingEnvironment)
     {

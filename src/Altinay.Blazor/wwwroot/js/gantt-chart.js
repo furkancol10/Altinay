@@ -234,3 +234,83 @@ window.showHtmlGanttChart = function() {
         console.log('HTML Gantt Chart shown as fallback');
     }
 };
+
+/**
+ * XML dosyasını indir
+ */
+window.downloadXmlFile = function(xmlContent, fileName) {
+    const blob = new Blob([xmlContent], { type: 'application/xml' });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+    console.log(`XML file downloaded: ${fileName}`);
+};
+
+/**
+ * XML dosya input'unu tetikle
+ */
+window.triggerXmlFileInput = function() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xml';
+    input.style.display = 'none';
+    
+    input.onchange = function(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const xmlContent = e.target.result;
+                // Blazor component'e XML içeriğini gönder
+                if (window.DotNet && window.DotNet.invokeMethodAsync) {
+                    window.DotNet.invokeMethodAsync('OnXmlFileUploaded', xmlContent);
+                }
+            };
+            reader.readAsText(file);
+        }
+    };
+    
+    document.body.appendChild(input);
+    input.click();
+    document.body.removeChild(input);
+};
+
+/**
+ * Drag & Drop için JavaScript helper fonksiyonları
+ */
+
+// Dragged task ID'sini sakla
+window.setDraggedTask = function(taskId) {
+    window.draggedTaskId = taskId;
+    console.log('Dragged task set:', taskId);
+};
+
+// Timeline'ın başlangıç X pozisyonunu al
+window.getTimelineStartX = function() {
+    const timeline = document.querySelector('.timeline-body');
+    if (timeline) {
+        const rect = timeline.getBoundingClientRect();
+        return rect.left;
+    }
+    return 0;
+};
+
+// Timeline'ın rect'ini al
+window.getTimelineRect = function() {
+    const timeline = document.querySelector('.timeline-body');
+    if (timeline) {
+        return timeline.getBoundingClientRect();
+    }
+    return null;
+};
+
+// Mouse pozisyonunu timeline pozisyonuna çevir
+window.convertMouseToTimelinePosition = function(mouseX) {
+    const timelineStart = window.getTimelineStartX();
+    return mouseX - timelineStart;
+};

@@ -255,10 +255,10 @@
 }
 else if (currentView == "gantt")
 {
-        <!-- Gantt Chart -->
-        <div class="gantt-chart-container">
-            <GanttChart Issues="@GetAllIssues()" OnTaskSelected="@OnGanttTaskSelected" />
-        </div>
+            <!-- Gantt Chart -->
+            <div class="gantt-chart-container">
+                <GanttChart Issues="@GetAllIssues()" OnTaskSelected="@OnGanttTaskSelected" OnIssueCreated="@ReloadAsync" />
+            </div>
 }
 
 <!-- Modals -->
