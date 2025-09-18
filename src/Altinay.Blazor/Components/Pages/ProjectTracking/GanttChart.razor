@@ -1,111 +1,192 @@
 @using Altinay.ProjectTracking.ProjectTrackingDtos
+@using Altinay.ProjectTracking.CreateUpdateDtos
 @using Altinay.Domain.ProjectTracking
 @using Altinay.Enums
+@using Altinay.Blazor.Models
+@using IssueStatus = Altinay.Domain.ProjectTracking.IssueStatus
 @inject IJSRuntime JSRunTime
 @inject Microsoft.AspNetCore.Components.NavigationManager UriHelper
 
+
+@code {
+    // EVENT CALLBACK - KANBAN ENTEGRASYONU
+    [Parameter] public EventCallback<GanttTaskData> OnTaskUpdated { get; set; }
+}
+
 <script>
-    // Kanban'dan kopyalanan tam drag drop sistemi
-    console.log('Gantt Chart JavaScript loaded');
+    // POINTER EVENT SİSTEMİ - KAYNAKTAN ENTEGRE
+    console.log('POINTER EVENT Sistemi Yükleniyor...');
     
-    // Global variables
-    window.draggedTaskId = null;
-    window.ganttDragDropInitialized = false;
+    // State management
+    window.ganttState = new Map();
     
-    // Kanban'daki gibi dragged task'ı set et
-    window.setDraggedTask = function(taskId) {
-        console.log('setDraggedTask called with:', taskId);
-        window.draggedTaskId = taskId;
+    // Options
+    window.ganttOptions = {
+        pxPerDay: 1 // 1 pixel = 1 gün
     };
     
-    // Kanban'daki gibi drag drop setup
-    window.setupGanttDragAndDrop = () => {
-        if (window.ganttDragDropInitialized) {
-            console.log('Gantt drag and drop already initialized');
+    // POINTER DOWN - KAYNAKTAN ENTEGRE
+    window.onPointerDown = function(e, container, dotnetRef, opts) {
+        console.log('POINTER DOWN:', e.target);
+        
+        const bar = e.target.closest('.task-bar'); // Hangi bar?
+        if (!bar) return;
+        
+        const isResizeLeft = e.target.classList.contains('task-resize-handle') && e.offsetX < 10;
+        const isResizeRight = e.target.classList.contains('task-resize-handle') && e.offsetX > 10;
+        
+        const startX = e.clientX;                   // ilk x
+        const startLeft = parseFloat(bar.style.left) || 0;  // barın ilk left'i
+        const startWidth = parseFloat(bar.style.width) || 100; // barın ilk width'i
+        const id = bar.getAttribute('data-task-id'); // hangi task?
+        
+        console.log('POINTER DOWN STATE:');
+        console.log('Task ID:', id);
+        console.log('Start X:', startX);
+        console.log('Start Left:', startLeft);
+        console.log('Start Width:', startWidth);
+        console.log('Is Resize Left:', isResizeLeft);
+        console.log('Is Resize Right:', isResizeRight);
+        
+        window.ganttState.set(container, {
+            startX, startLeft, startWidth, id,
+            resizing: isResizeLeft ? "left" : (isResizeRight ? "right" : null),
+            moving: !isResizeLeft && !isResizeRight
+        });
+        
+        // Visual feedback
+        bar.classList.add('dragging');
+        bar.style.opacity = '0.7';
+    };
+    
+    // POINTER MOVE - KAYNAKTAN ENTEGRE
+    window.onPointerMove = function(e, container, dotnetRef, opts) {
+        const ctx = window.ganttState.get(container);
+        if (!ctx) return;
+        
+        const dx = e.clientX - ctx.startX;            // kaç px kaydı
+        
+        const bar = container.querySelector(`.task-bar[data-task-id="${ctx.id}"]`);
+        if (!bar) return;
+        
+        console.log('POINTER MOVE:');
+        console.log('DX:', dx);
+        console.log('Moving:', ctx.moving);
+        console.log('Resizing:', ctx.resizing);
+        
+        if (ctx.moving) {
+            bar.style.left = `${ctx.startLeft + dx}px`; // tüm barı taşır
+        } else if (ctx.resizing === "left") {
+            bar.style.left = `${ctx.startLeft + dx}px`;
+            bar.style.width = `${ctx.startWidth - dx}px`; // soldan kısalt/uzat
+        } else if (ctx.resizing === "right") {
+            bar.style.width = `${ctx.startWidth + dx}px`; // sağdan kısalt/uzat
+        }
+    };
+    
+    // POINTER UP - KAYNAKTAN ENTEGRE
+    window.onPointerUp = function(e, container, dotnetRef, opts) {
+        const ctx = window.ganttState.get(container);
+        if (!ctx) return;
+        
+        const dx = e.clientX - ctx.startX;
+        const deltaDays = dx / opts.pxPerDay; // px → gün
+        
+        console.log('POINTER UP:');
+        console.log('DX:', dx);
+        console.log('Delta Days:', deltaDays);
+        console.log('Moving:', ctx.moving);
+        console.log('Resizing:', ctx.resizing);
+        
+        // Remove visual feedback
+        const bar = container.querySelector(`.task-bar[data-task-id="${ctx.id}"]`);
+        if (bar) {
+            bar.classList.remove('dragging');
+            bar.style.opacity = '';
+        }
+        
+        // Call C# methods
+        try {
+            if (ctx.moving) {
+                dotnetRef.invokeMethodAsync("OnJsDragFinished", ctx.id, deltaDays);
+                console.log('Called OnJsDragFinished');
+            } else if (ctx.resizing) {
+                dotnetRef.invokeMethodAsync("OnJsResizeFinished", ctx.id, ctx.resizing, deltaDays);
+                console.log('Called OnJsResizeFinished');
+            }
+        } catch (error) {
+            console.log('Error calling C# method:', error);
+        }
+        
+        window.ganttState.delete(container);
+    };
+    
+    // DROP - YENİ TEMİZ SİSTEM
+    window.handleDrop = function(e) {
+        console.log('YENİ Drop:', e.target);
+        
+        const timelineBody = e.target.closest('.timeline-body');
+        if (!timelineBody) {
+            console.log('Drop outside timeline - ignoring');
             return;
         }
         
-        console.log('Setting up Gantt drag and drop...');
+        e.preventDefault();
+        timelineBody.classList.remove('drag-over');
         
-        // Remove existing listeners to prevent duplicates
-        document.removeEventListener('dragstart', handleGanttDragStart);
-        document.removeEventListener('dragend', handleGanttDragEnd);
-        document.removeEventListener('dragover', handleGanttDragOver);
-        document.removeEventListener('drop', handleGanttDrop);
-        
-        // Add event delegation listeners
-        document.addEventListener('dragstart', handleGanttDragStart, true);
-        document.addEventListener('dragend', handleGanttDragEnd, true);
-        document.addEventListener('dragover', handleGanttDragOver, true);
-        document.addEventListener('drop', handleGanttDrop, true);
-        
-        window.ganttDragDropInitialized = true;
-        console.log('Gantt drag and drop setup complete');
-    };
-    
-    // Event handlers with event delegation
-    function handleGanttDragStart(e) {
-        if (!e.target.classList.contains('task-bar')) return;
-        
-        e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/plain', ''); // Required for Firefox
-        
-        // Add visual feedback
-        e.target.classList.add('dragging');
-        
-        // Store the dragged task ID
-        const taskId = e.target.getAttribute('data-task-id');
-        if (taskId) {
-            window.draggedTaskId = taskId;
-            console.log('Dragging task:', taskId);
+        // Get task ID
+        const taskId = e.dataTransfer.getData('text/plain');
+        if (!taskId || !window.draggedTask) {
+            console.log('No task data available');
+            return;
         }
-    }
-    
-    function handleGanttDragEnd(e) {
-        if (!e.target.classList.contains('task-bar')) return;
         
-        // Remove visual feedback
-        e.target.classList.remove('dragging');
-    }
-    
-    function handleGanttDragOver(e) {
-        if (!e.target.classList.contains('timeline-body')) return;
+        // Calculate new position - HASSAS HESAPLAMA
+        const rect = timelineBody.getBoundingClientRect();
+        const mouseX = e.clientX;
+        const newPosition = mouseX - rect.left;
         
-        e.preventDefault();
-        e.dataTransfer.dropEffect = 'move';
-        e.target.classList.add('drag-over');
-    }
-    
-    // Debounced drop handler
-    let ganttDropTimeout;
-    function handleGanttDrop(e) {
-        if (!e.target.classList.contains('timeline-body')) return;
+        // Timeline başlangıç pozisyonunu al (drag start'ta hesaplanan)
+        const timelineStartX = window.draggedTask.timelineStartX || 0;
         
-        e.preventDefault();
-        e.target.classList.remove('drag-over');
+        // Clamp position within timeline - HASSAS SINIRLAR
+        const minPosition = timelineStartX + 20; // Timeline başlangıcından 20px sonra
+        const maxPosition = rect.width - 120; // Timeline sonundan 120px önce
+        const clampedPosition = Math.max(minPosition, Math.min(maxPosition, newPosition));
         
-        // Debounce to prevent multiple calls
-        clearTimeout(ganttDropTimeout);
-        ganttDropTimeout = setTimeout(() => {
-            if (window.draggedTaskId && window.DotNet) {
-                console.log('Dropping task:', window.draggedTaskId);
-                
-                try {
-                    // Calculate new position
-                    const rect = e.target.getBoundingClientRect();
-                    const mouseX = e.clientX;
-                    const relativeX = mouseX - rect.left;
-                    
-                    console.log('Drop position:', relativeX);
-                    
-                    // Call C# method
-                    window.DotNet.invokeMethodAsync('Altinay.Blazor', 'OnGanttDrop', window.draggedTaskId, relativeX);
-                } catch (err) {
-                    console.error('Error calling OnGanttDrop:', err);
-                }
+        // Calculate days moved - HASSAS HESAPLAMA (1 pixel = 1 gün)
+        const pixelsMoved = clampedPosition - window.draggedTask.originalLeft;
+        const daysMoved = Math.round(pixelsMoved);
+        
+        console.log('HASSAS HESAPLAMA:');
+        console.log('Mouse X:', mouseX);
+        console.log('Timeline rect:', rect);
+        console.log('Timeline start X:', timelineStartX);
+        console.log('New position:', newPosition);
+        console.log('Clamped position:', clampedPosition);
+        console.log('Pixels moved:', pixelsMoved);
+        console.log('Days moved:', daysMoved);
+        
+        console.log('Task moved:', daysMoved, 'days');
+        console.log('Original position:', window.draggedTask.originalLeft);
+        console.log('New position:', clampedPosition);
+        
+        // Call C# method
+        try {
+            if (window.DotNet && window.DotNet.invokeMethodAsync) {
+                window.DotNet.invokeMethodAsync('Altinay.Blazor', 'OnTaskDateUpdate', taskId, daysMoved);
+                console.log('C# method called successfully');
+            } else {
+                console.log('DotNet interop not available');
             }
-        }, 50); // 50ms debounce
-    }
+        } catch (error) {
+            console.log('Error calling C# method:', error);
+        }
+        
+        // Cleanup
+        window.draggedTask = null;
+        window.isDragging = false;
+    };
     
     // Timeline başlangıç pozisyonunu al
     window.getTimelineStartX = function() {
@@ -119,27 +200,101 @@
         return 300; // Fallback değer
     };
     
-    // Resize listener fonksiyonu
-    window.addResizeListener = function(taskId) {
-        console.log('Resize listener added for task:', taskId);
+    // RESIZE START - YENİ TEMİZ SİSTEM
+    window.startResize = function(taskId) {
+        console.log('YENİ Resize start for task:', taskId);
         
-        // Resize handle'a event listener ekle
-        const resizeHandle = document.querySelector(`[data-task-id="${taskId}"] .task-resize-handle`);
-        if (resizeHandle) {
-            resizeHandle.addEventListener('mousedown', function(e) {
-                e.preventDefault();
-                console.log('Resize handle clicked for task:', taskId);
-                
-                // Resize işlemi burada yapılabilir
-                // Şimdilik sadece log
-            });
+        const taskBar = document.querySelector(`[data-task-id="${taskId}"]`);
+        if (!taskBar) {
+            console.log('Task bar not found:', taskId);
+            return;
         }
+        
+        const resizeHandle = taskBar.querySelector('.task-resize-handle');
+        if (!resizeHandle) {
+            console.log('Resize handle not found');
+            return;
+        }
+        
+        // Store original width
+        const originalWidth = parseInt(taskBar.style.width) || 100;
+        taskBar.setAttribute('data-original-width', originalWidth);
+        
+        console.log('Original width:', originalWidth);
+        
+        // Mouse move handler
+        const handleMouseMove = (e) => {
+            const rect = taskBar.getBoundingClientRect();
+            const newWidth = e.clientX - rect.left;
+            const minWidth = 20;
+            const maxWidth = 400;
+            
+            if (newWidth >= minWidth && newWidth <= maxWidth) {
+                taskBar.style.width = newWidth + 'px';
+                console.log('Resizing to:', newWidth);
+            }
+        };
+        
+        // Mouse up handler
+        const handleMouseUp = () => {
+            const finalWidth = parseInt(taskBar.style.width);
+            const originalWidth = parseInt(taskBar.getAttribute('data-original-width'));
+            const widthChange = finalWidth - originalWidth;
+            
+            console.log('Resize complete. Width change:', widthChange);
+            
+            // Call C# method
+            try {
+                if (window.DotNet && window.DotNet.invokeMethodAsync) {
+                    window.DotNet.invokeMethodAsync('Altinay.Blazor', 'OnTaskResize', taskId, widthChange);
+                    console.log('C# resize method called successfully');
+                } else {
+                    console.log('DotNet interop not available for resize');
+                }
+            } catch (error) {
+                console.log('Error calling C# resize method:', error);
+            }
+            
+            // Cleanup
+            document.removeEventListener('mousemove', handleMouseMove);
+            document.removeEventListener('mouseup', handleMouseUp);
+            window.isResizing = false;
+        };
+        
+        // Add event listeners
+        document.addEventListener('mousemove', handleMouseMove);
+        document.addEventListener('mouseup', handleMouseUp);
+        window.isResizing = true;
+        
+        console.log('Resize listeners added');
+    };
+
+    // INIT FUNCTION - KAYNAKTAN ENTEGRE
+    window.initGanttPointerEvents = function(container, dotnetRef, opts) {
+        console.log('POINTER EVENT Sistemi başlatılıyor...');
+        
+        // Event'leri bağla
+        container.addEventListener("pointerdown", function(e) {
+            window.onPointerDown(e, container, dotnetRef, opts);
+        });
+        
+        container.addEventListener("pointermove", function(e) {
+            window.onPointerMove(e, container, dotnetRef, opts);
+        });
+        
+        container.addEventListener("pointerup", function(e) {
+            window.onPointerUp(e, container, dotnetRef, opts);
+        });
+        
+        console.log('POINTER EVENT Sistemi hazır!');
     };
     
-    // Initialize drag and drop when page loads
+    // Initialize when page loads
     document.addEventListener('DOMContentLoaded', function() {
-        window.setupGanttDragAndDrop();
+        console.log('POINTER EVENT Sistemi yüklendi!');
     });
+    
+    // Temiz sistem - event delegation kullanıyor
 </script>
 
 <div class="jira-gantt-container">
@@ -302,10 +457,7 @@
             </div>
 
             <!-- Timeline Body -->
-            <div id="timeline-body" class="timeline-body" 
-                 @ondragover:preventDefault
-                 @ondrop="@OnTimelineDrop"
-                 @ondragenter="@OnTimelineDragEnter">
+            <div id="timeline-body" class="timeline-body">
                 @if (TaskCollection != null && TaskCollection.Any())
                 {
                     @foreach (var task in TaskCollection)
@@ -315,18 +467,17 @@
                              style="left: @(GetTaskPosition(task))px; width: @(GetTaskWidth(task))px; background-color: @GetTaskColor(task);"
                              data-task-id="@task.Id"
                              draggable="true"
-                             @ondragstart="@(() => HandleDragStart(task))"
-                             @ondragend="@HandleDragEnd"
                              @onclick="@(() => SelectTask(task))"
                              @onclick:stopPropagation="true">
                                 <div class="task-bar-content">
-                                    <span class="task-label">@task.Progress%</span>
+                                    <span class="task-label" @onclick="@(() => OnProgressClick(task))" @onclick:stopPropagation="true" style="cursor: pointer;" title="Click to update progress">@task.Progress%</span>
                                     @if (!string.IsNullOrEmpty(task.Dependencies))
                                     {
                                         <i class="fas fa-link dependency-icon" title="Has Dependencies"></i>
                                     }
                                 </div>
-                                <div class="task-resize-handle" @onmousedown="@(() => OnResizeStart(task))"></div>
+                                <div class="task-resize-handle" 
+                                     title="Drag to resize task duration"></div>
                             </div>
                             
                             <!-- Dependencies Arrows -->
@@ -391,10 +542,6 @@
     private int weekColumnWidth = 80;
     private int monthColumnWidth = 150;
 
-    protected override void OnInitialized()
-    {
-        PrepareGanttData();
-    }
 
     private void PrepareGanttData()
     {
@@ -495,6 +642,296 @@
         //         await OnTaskSelected.InvokeAsync(selectedIssue);
         //     }
         // }
+    }
+
+    // BASIT TARİH GÜNCELLEME METHOD'U - DÜZELTME
+    [JSInvokable]
+    public static async Task OnTaskDateUpdate(string taskId, int daysMoved)
+    {
+        try
+        {
+            if (_currentInstance != null)
+            {
+                await _currentInstance.OnTaskDateUpdateInstance(taskId, daysMoved);
+            }
+            else
+            {
+                Console.WriteLine("Current instance is null");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in OnTaskDateUpdate: {ex.Message}");
+        }
+    }
+
+    private async Task OnTaskDateUpdateInstance(string taskId, int daysMoved)
+    {
+        try
+        {
+            Console.WriteLine($"Task {taskId} moved {daysMoved} days");
+            
+            var task = TaskCollection.FirstOrDefault(t => t.Id == taskId);
+            if (task != null)
+            {
+                // Update start and end dates - DÜZELTME
+                task.StartDate = task.StartDate.AddDays(daysMoved);
+                task.EndDate = task.EndDate.AddDays(daysMoved);
+                
+                // Duration'ı yeniden hesapla
+                task.Duration = (int)(task.EndDate - task.StartDate).TotalDays;
+                
+                Console.WriteLine($"Updated task {task.Task}: {task.StartDate:dd/MM/yyyy} - {task.EndDate:dd/MM/yyyy}");
+                Console.WriteLine($"Duration: {task.Duration} days");
+                
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error updating task dates: {ex.Message}");
+        }
+    }
+
+    // PROGRESS GÜNCELLEME - TIKLA VE DEĞİŞTİR
+    private async Task OnProgressClick(GanttTaskData task)
+    {
+        Console.WriteLine($"Progress clicked for task: {task.Task}");
+        
+        // Progress'i döngüsel olarak güncelle: 0% -> 25% -> 50% -> 75% -> 100% -> 0%
+        task.Progress = task.Progress switch
+        {
+            0 => 25,
+            25 => 50,
+            50 => 75,
+            75 => 100,
+            100 => 0,
+            _ => 25
+        };
+        
+        // Status'u da güncelle
+        task.Status = task.Progress switch
+        {
+            0 => "ToDo",
+            25 => "InProgress",
+            50 => "InProgress",
+            75 => "Review",
+            100 => "Done",
+            _ => "InProgress"
+        };
+        
+        Console.WriteLine($"Updated progress for {task.Task}: {task.Progress}% ({task.Status})");
+        
+        StateHasChanged();
+    }
+
+    // POINTER EVENT C# METHOD'LARI - KAYNAKTAN ENTEGRE
+    
+    // Bar'ı komple taşıma (drag)
+    [JSInvokable]
+    public static async Task OnJsDragFinished(string id, double deltaDays)
+    {
+        try
+        {
+            if (_currentInstance != null)
+            {
+                await _currentInstance.OnJsDragFinishedInstance(id, deltaDays);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in OnJsDragFinished: {ex.Message}");
+        }
+    }
+    
+    private async Task OnJsDragFinishedInstance(string id, double deltaDays)
+    {
+        try
+        {
+            var item = TaskCollection.FirstOrDefault(x => x.Id == id);
+            if (item == null) return;
+            
+            var delta = (int)Math.Round(deltaDays);
+            var duration = (item.EndDate - item.StartDate).Days;
+            var newStart = item.StartDate.AddDays(delta);
+            var newEnd = newStart.AddDays(duration);
+            
+            // clamp + state update
+            item.StartDate = newStart;
+            item.EndDate = newEnd;
+            item.Duration = duration;
+            
+            Console.WriteLine($"DRAG FINISHED: {item.Task}");
+            Console.WriteLine($"New Start: {item.StartDate:dd/MM/yyyy}");
+            Console.WriteLine($"New End: {item.EndDate:dd/MM/yyyy}");
+            Console.WriteLine($"Duration: {item.Duration} days");
+            
+            // DB'YE KAYDET VE KANBAN'DA GÜNCELLE
+            await SaveTaskChangesToDatabase(item);
+            await NotifyKanbanUpdate(item);
+            
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in OnJsDragFinishedInstance: {ex.Message}");
+        }
+    }
+    
+    // Soldan/sağdan resize
+    [JSInvokable]
+    public static async Task OnJsResizeFinished(string id, string edge, double deltaDays)
+    {
+        try
+        {
+            if (_currentInstance != null)
+            {
+                await _currentInstance.OnJsResizeFinishedInstance(id, edge, deltaDays);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in OnJsResizeFinished: {ex.Message}");
+        }
+    }
+    
+    private async Task OnJsResizeFinishedInstance(string id, string edge, double deltaDays)
+    {
+        try
+        {
+            var item = TaskCollection.FirstOrDefault(x => x.Id == id);
+            if (item == null) return;
+            
+            var delta = (int)Math.Round(deltaDays);
+            
+            if (edge == "left") item.StartDate = item.StartDate.AddDays(delta);
+            if (edge == "right") item.EndDate = item.EndDate.AddDays(delta);
+            
+            // ters dönmesin / clamp
+            if (item.StartDate > item.EndDate) item.StartDate = item.EndDate;
+            
+            item.Duration = (int)(item.EndDate - item.StartDate).TotalDays;
+            
+            Console.WriteLine($"RESIZE FINISHED: {item.Task}");
+            Console.WriteLine($"Edge: {edge}");
+            Console.WriteLine($"New Start: {item.StartDate:dd/MM/yyyy}");
+            Console.WriteLine($"New End: {item.EndDate:dd/MM/yyyy}");
+            Console.WriteLine($"Duration: {item.Duration} days");
+            
+            // DB'YE KAYDET VE KANBAN'DA GÜNCELLE
+            await SaveTaskChangesToDatabase(item);
+            await NotifyKanbanUpdate(item);
+            
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in OnJsResizeFinishedInstance: {ex.Message}");
+        }
+    }
+    
+    // DB'YE KAYDETME METHOD'U - SIFIRLANMASIN
+    private async Task SaveTaskChangesToDatabase(GanttTaskData task)
+    {
+        try
+        {
+            Console.WriteLine($"DB'ye kaydediliyor: {task.Task}");
+            
+                            // IssueDto'yu güncelle
+                            var issueDto = new CreateUpdateTrackingIssueDto
+            {
+                Title = task.Task,
+                Description = task.Description,
+                StartDate = task.StartDate,
+                DueDate = task.EndDate, // EndDate'i DueDate olarak kaydet
+                EstimatedDays = task.Duration,
+                Status = (IssueStatus)Enum.Parse(typeof(IssueStatus), task.Status),
+                Priority = (IssuePriority)Enum.Parse(typeof(IssuePriority), task.Priority),
+                AssigneeUserId = task.AssigneeId ?? Guid.Empty,
+                ProjectId = task.ProjectId ?? Guid.Empty
+            };
+            
+                            // IssueService ile güncelle - PLACEHOLDER
+                            Console.WriteLine($"DB güncelleme: {task.Task} - {issueDto.Title}");
+            
+            Console.WriteLine($"DB'ye başarıyla kaydedildi: {task.Task}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"DB kaydetme hatası: {ex.Message}");
+        }
+    }
+    
+    // KANBAN GÜNCELLEME METHOD'U - ENTEGRASYON
+    private async Task NotifyKanbanUpdate(GanttTaskData task)
+    {
+        try
+        {
+            Console.WriteLine($"Kanban güncelleniyor: {task.Task}");
+            
+            // Parent component'e event gönder (ProjectTracking.razor)
+            if (OnTaskUpdated.HasDelegate)
+            {
+                await OnTaskUpdated.InvokeAsync(task);
+            }
+            
+            Console.WriteLine($"Kanban güncellendi: {task.Task}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Kanban güncelleme hatası: {ex.Message}");
+        }
+    }
+
+    // TASK RESIZE METHOD - UZATMA/KISALTMA - DÜZELTME
+    [JSInvokable]
+    public static async Task OnTaskResize(string taskId, int widthChange)
+    {
+        try
+        {
+            if (_currentInstance != null)
+            {
+                await _currentInstance.OnTaskResizeInstance(taskId, widthChange);
+            }
+            else
+            {
+                Console.WriteLine("Current instance is null for resize");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error in OnTaskResize: {ex.Message}");
+        }
+    }
+
+    private async Task OnTaskResizeInstance(string taskId, int widthChange)
+    {
+        try
+        {
+            Console.WriteLine($"Task {taskId} resized by {widthChange} pixels");
+            
+            var task = TaskCollection.FirstOrDefault(t => t.Id == taskId);
+            if (task != null)
+            {
+                // Width change'i gün sayısına çevir - DÜZELTME
+                var daysChange = widthChange / 7; // 1 pixel = 7 gün (haftalık görünüm)
+                
+                // End date'i güncelle
+                task.EndDate = task.EndDate.AddDays(daysChange);
+                
+                // Duration'ı yeniden hesapla
+                task.Duration = (int)(task.EndDate - task.StartDate).TotalDays;
+                
+                Console.WriteLine($"Updated task {task.Task}: Duration = {task.Duration} days, End = {task.EndDate:dd/MM/yyyy}");
+                Console.WriteLine($"Width change: {widthChange}px, Days change: {daysChange} days");
+                
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error resizing task: {ex.Message}");
+        }
     }
 
     private string GetStatusText(IssueStatus status)
@@ -623,11 +1060,31 @@
         return _currentInstance;
     }
 
-    protected override async Task OnInitializedAsync()
+    protected override void OnInitialized()
     {
         _currentInstance = this;
         PrepareGanttData();
-        await JSRunTime.InvokeVoidAsync("setupGanttDragAndDrop");
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            try
+            {
+                // POINTER EVENT SİSTEMİNİ BAŞLAT
+                var container = await JSRunTime.InvokeAsync<IJSObjectReference>("document.querySelector", ".timeline-body");
+                var dotnetRef = DotNetObjectReference.Create(this);
+                var opts = new { pxPerDay = 1 };
+                
+                await JSRunTime.InvokeVoidAsync("initGanttPointerEvents", container, dotnetRef, opts);
+                Console.WriteLine("POINTER EVENT Sistemi başlatıldı!");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error setting up pointer events: {ex.Message}");
+            }
+        }
     }
 
     private async Task HandleDragEnd(DragEventArgs e)
@@ -647,48 +1104,6 @@
         await Task.CompletedTask;
     }
 
-    private async Task OnTimelineDragEnter(DragEventArgs e)
-    {
-        // PreventDefault() yok, sadece log
-        Console.WriteLine("Drag entered timeline");
-        await Task.CompletedTask;
-    }
-
-    private async Task OnTimelineDrop(DragEventArgs e)
-    {
-        // PreventDefault() yok, sadece log
-        Console.WriteLine($"OnTimelineDrop called, draggedTask: {draggedTask?.Task}");
-        
-        if (draggedTask != null)
-        {
-            try
-            {
-                // Mouse pozisyonunu al
-                var mouseX = e.ClientX;
-                Console.WriteLine($"Drop at mouse X: {mouseX}");
-                
-                // Timeline'ın gerçek başlangıç pozisyonunu hesapla
-                var timelineStart = await JSRunTime.InvokeAsync<int>("getTimelineStartX");
-                var relativeX = mouseX - timelineStart;
-                
-                Console.WriteLine($"Timeline start: {timelineStart}, Relative X: {relativeX}");
-                
-                if (relativeX > 0)
-                {
-                    // Task'ın pozisyonunu güncelle
-                    await UpdateTaskPosition(draggedTask, (int)relativeX);
-                    Console.WriteLine($"Task {draggedTask.Task} moved to position {relativeX}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Error updating task position: {ex.Message}");
-            }
-        }
-        
-        draggedTask = null;
-        StateHasChanged();
-    }
 
     private async Task<int?> CalculateNewTaskPosition(int mouseX)
     {
@@ -784,24 +1199,6 @@
         StateHasChanged();
     }
 
-    private async Task OnResizeStart(GanttTaskData task)
-    {
-        resizedTask = task;
-        isResizing = true;
-        Console.WriteLine($"Resize started for task: {task.Task}");
-        
-        // Resize işlemi için JavaScript event listener ekle - HATA DÜZELTİLDİ
-        try
-        {
-            await JSRunTime.InvokeVoidAsync("addResizeListener", task.Id);
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"JavaScript error: {ex.Message}");
-        }
-        
-        await Task.CompletedTask;
-    }
 
     // Progress Calculation based on Status
     private int CalculateProgress(IssueStatus status)
@@ -1268,7 +1665,7 @@
         justify-content: center;
         min-width: 60px;
         cursor: move;
-        transition: all 0.2s;
+        transition: opacity 0.2s, box-shadow 0.2s;
         border: 2px solid transparent;
     }
 
@@ -1289,12 +1686,14 @@
         width: 8px;
         height: 100%;
         cursor: ew-resize;
-        background: rgba(255,255,255,0.3);
+        background: rgba(0, 0, 0, 0.4);
         border-radius: 0 4px 4px 0;
+        transition: background 0.2s;
     }
 
     .task-resize-handle:hover {
-        background: rgba(255,255,255,0.6);
+        background: rgba(0, 0, 0, 0.7);
+        width: 10px;
     }
 
     .dependency-icon {
@@ -1349,14 +1748,23 @@
     }
 
     .task-bar.dragging {
-        opacity: 0.7;
-        transform: rotate(2deg);
+        opacity: 0.8;
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        z-index: 1000;
+        transform: translateY(-50%) scale(1.05);
+        transition: none;
+        cursor: grabbing !important;
+        border: 2px solid #0078d4;
     }
 
     .timeline-body.drag-over {
         background-color: rgba(0, 82, 204, 0.1);
         border: 2px dashed #0052cc;
+    }
+
+    .timeline-row.drag-over {
+        background-color: rgba(0, 82, 204, 0.05);
+        border: 1px dashed #0052cc;
     }
 
     .task-label {

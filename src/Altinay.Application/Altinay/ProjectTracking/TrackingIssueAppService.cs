@@ -175,5 +175,28 @@ namespace Altinay.ProjectTracking
             e.AssigneeUserId = null;
             await Repository.UpdateAsync(e, autoSave: true);
         }
+        
+        // KANBAN + GANTT ENTEGRASYONU
+        public async Task<List<TrackingIssueDto>> GetListAsync()
+        {
+            var issues = await Repository.GetListAsync();
+            return ObjectMapper.Map<List<TrackingIssue>, List<TrackingIssueDto>>(issues);
+        }
+        
+        public async Task UpdateDatesAsync(Guid id, DateTime start, DateTime end)
+        {
+            var issue = await Repository.GetAsync(id);
+            issue.StartDate = start;
+            issue.DueDate = end; // EndDate yerine DueDate kullan
+            issue.EstimatedDays = (int)(end - start).TotalDays;
+            await Repository.UpdateAsync(issue, autoSave: true);
+        }
+        
+        public async Task UpdateStatusAsync(Guid id, int status)
+        {
+            var issue = await Repository.GetAsync(id);
+            issue.Status = (IssueStatus)status;
+            await Repository.UpdateAsync(issue, autoSave: true);
+        }
     }
 }

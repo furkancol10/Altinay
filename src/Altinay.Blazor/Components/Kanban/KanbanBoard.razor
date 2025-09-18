@@ -1,0 +1,100 @@
+@using Altinay.Blazor.Models
+@using IssueStatus = Altinay.Blazor.Models.IssueStatus
+
+<div class="kanban">
+    @foreach (var col in Columns)
+    {
+        <div class="kanban-col"
+             ondragover="event.preventDefault()"
+             @ondrop="(e)=>OnDrop(e,col.Status)">
+            <div class="kanban-col-header">@col.Title (@Items.Count(i=>i.Status==col.Status))</div>
+
+            @foreach (var card in Items.Where(i => i.Status == col.Status))
+            {
+                <div class="kanban-card"
+                     draggable="true"
+                     @ondragstart="(e)=>OnDragStart(e, card.Id)">
+                    <div class="kanban-card-title">@card.Title</div>
+                    <div class="kanban-card-meta">
+                        <small>@card.Start:dd.MM → @card.End:dd.MM</small>
+                    </div>
+
+                    <details class="mt-1">
+                        <summary>Tarih/Durum düzenle</summary>
+                        <div class="kanban-editor">
+                            <label>Başlangıç: <input type="date" @bind="card.Start" /></label>
+                            <label>Bitiş:     <input type="date" @bind="card.End" /></label>
+                            <label>Durum:
+                                <select @bind="card.Status">
+                                    @foreach (var s in Enum.GetValues<IssueStatus>())
+                                    { <option value="@s">@s</option> }
+                                </select>
+                            </label>
+                            <button class="save-btn" @onclick="() => SaveCardAsync(card)">Kaydet</button>
+                        </div>
+                    </details>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<style>
+    .kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .kanban-col { background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px; min-height: 300px; }
+    .kanban-col-header { font-weight: 600; margin-bottom: 8px; }
+    .kanban-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 10px; padding: 8px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+    .kanban-card-title { font-weight: 600; }
+    .kanban-editor { display: flex; flex-direction: column; gap: 6px; padding-top: 6px; }
+    .save-btn { padding: 6px 10px; border-radius: 8px; border: 0; background: #0ea5e9; color: #fff; }
+</style>
+
+@code {
+    [Parameter] public List<TrackingIssueVm> Items { get; set; } = new();
+    [Parameter] public EventCallback<(Guid id, IssueStatus status)> OnStatusChanged { get; set; }
+    [Parameter] public EventCallback<(Guid id, DateTime start, DateTime end)> OnDatesChanged { get; set; }
+
+    private Guid _draggingId;
+
+    private (string Title, IssueStatus Status)[] Columns = new[]
+    {
+        ("To Do", IssueStatus.ToDo),
+        ("In Progress", IssueStatus.InProgress),
+        ("In Review", IssueStatus.InReview),
+        ("Done", IssueStatus.Done)
+    };
+
+    private void OnDragStart(DragEventArgs e, Guid id) => _draggingId = id;
+
+    private async Task OnDrop(DragEventArgs e, IssueStatus newStatus)
+    {
+        var card = Items.FirstOrDefault(i => i.Id == _draggingId);
+        if (card is null) return;
+
+        if (card.Status != newStatus)
+        {
+            card.Status = newStatus;
+
+            // Basit kural: Done olursa End = max(End, today), InProgress olursa Start = min(Start, today)
+            if (newStatus == IssueStatus.Done && card.End < DateTime.Today) card.End = DateTime.Today;
+            if (newStatus == IssueStatus.InProgress && card.Start > DateTime.Today) card.Start = DateTime.Today;
+
+            StateHasChanged();
+
+            if (OnStatusChanged.HasDelegate)
+                await OnStatusChanged.InvokeAsync((card.Id, newStatus));
+
+            if (OnDatesChanged.HasDelegate)
+                await OnDatesChanged.InvokeAsync((card.Id, card.Start, card.End));
+        }
+    }
+
+    private async Task SaveCardAsync(TrackingIssueVm card)
+    {
+        // Kullanıcı manuel tarih/durum girdi → Gantt otomatik güncellenecek (tek liste)
+        if (OnStatusChanged.HasDelegate)
+            await OnStatusChanged.InvokeAsync((card.Id, card.Status));
+        if (OnDatesChanged.HasDelegate)
+            await OnDatesChanged.InvokeAsync((card.Id, card.Start, card.End));
+    }
+}

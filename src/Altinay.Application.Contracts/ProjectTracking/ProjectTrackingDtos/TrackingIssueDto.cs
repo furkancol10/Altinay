@@ -15,7 +15,10 @@ namespace Altinay.ProjectTracking.ProjectTrackingDtos
         public IssuePriority Priority { get; set; }
 
         public Guid? AssigneeUserId { get; set; }
+        public string? AssigneeName { get; set; }
+        public Guid? AssigneeId { get; set; }
         public DateTime? DueDate { get; set; }
+        public int ProgressPercent { get; set; } = 0;
 
         public int Order { get; set; }
 

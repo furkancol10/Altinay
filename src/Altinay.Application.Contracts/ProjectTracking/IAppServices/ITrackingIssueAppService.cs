@@ -3,6 +3,7 @@ using Altinay.Enums;
 using Altinay.ProjectTracking.CreateUpdateDtos;
 using Altinay.ProjectTracking.ProjectTrackingDtos;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Volo.Abp.Application.Services;
 
@@ -23,6 +24,11 @@ namespace Altinay.ProjectTracking.IAppServices
         Task ReorderAsync(IssueReorderInput input);
         Task AssignAsync(Guid id, Guid userId);
         Task UnassignAsync(Guid id);
+        
+        // KANBAN + GANTT ENTEGRASYONU
+        Task<List<TrackingIssueDto>> GetListAsync();
+        Task UpdateDatesAsync(Guid id, DateTime start, DateTime end);
+        Task UpdateStatusAsync(Guid id, int status);
 
     }
 

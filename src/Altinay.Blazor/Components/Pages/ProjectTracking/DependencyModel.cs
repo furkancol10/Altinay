@@ -20,6 +20,6 @@ namespace Altinay.Blazor.Components.Pages.ProjectTracking
     {
         public string TaskId { get; set; } = string.Empty;
         public DependencyType Type { get; set; } = DependencyType.FinishToStart;
-        public int Lag { get; set; } = 0; // Gecikme (gün)
+        public int Lag { get; set; } = 0; // Gec
     }
 }

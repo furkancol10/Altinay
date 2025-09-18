@@ -1,4 +1,4 @@
-﻿@page "/project-tracking"
+@page "/project-tracking"
 
 @using Microsoft.AspNetCore.Components.Web
 @using Volo.Abp.Application.Dtos
@@ -1841,6 +1841,44 @@ else if (currentView == "gantt")
         
         // Kanban görünümüne geç
         SwitchView("kanban");
+    }
+    
+    /// <summary>
+    /// Gantt Chart'ta görev güncellendiğinde - KANBAN ENTEGRASYONU
+    /// </summary>
+    /// <param name="updatedTask">Güncellenen görev</param>
+    private async Task OnGanttTaskUpdated(GanttTaskData updatedTask)
+    {
+        try
+        {
+            Console.WriteLine($"Gantt'tan güncelleme geldi: {updatedTask.Task}");
+            
+            // Kanban'daki issue'yu güncelle
+            var issue = GetAllIssues().FirstOrDefault(x => x.Id == Guid.Parse(updatedTask.Id));
+            if (issue != null)
+            {
+                issue.StartDate = updatedTask.StartDate;
+                issue.DueDate = updatedTask.EndDate;
+                issue.EstimatedDays = updatedTask.Duration;
+                    issue.Status = (IssueStatus)Enum.Parse(typeof(IssueStatus), updatedTask.Status);
+                    issue.Priority = (IssuePriority)Enum.Parse(typeof(IssuePriority), updatedTask.Priority);
+                
+                Console.WriteLine($"Kanban güncellendi: {issue.Title}");
+                Console.WriteLine($"Yeni Start Date: {issue.StartDate:dd/MM/yyyy}");
+                Console.WriteLine($"Yeni Due Date: {issue.DueDate:dd/MM/yyyy}");
+                Console.WriteLine($"Yeni Duration: {issue.EstimatedDays} gün");
+            }
+            
+            // Kanban görünümündeyse UI'ı yenile
+            if (currentView == "kanban")
+            {
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Kanban güncelleme hatası: {ex.Message}");
+        }
     }
 
 	public class NotificationItem
