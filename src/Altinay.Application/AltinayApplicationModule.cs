@@ -6,19 +6,22 @@ using Volo.Abp.Modularity;
 using Volo.Abp.PermissionManagement;
 using Volo.Abp.SettingManagement;
 using Volo.Abp.TenantManagement;
+using Altinay.ProjectTracking.IAppServices;
+using Altinay.ProjectTracking;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Altinay;
 
 [DependsOn(
     typeof(AltinayDomainModule),
-    typeof(AbpAccountApplicationModule),
+    typeof(AbpAccountApplicationModule),   
     typeof(AltinayApplicationContractsModule),
     typeof(AbpIdentityApplicationModule),
     typeof(AbpPermissionManagementApplicationModule),
     typeof(AbpTenantManagementApplicationModule),
     typeof(AbpFeatureManagementApplicationModule),
     typeof(AbpSettingManagementApplicationModule)
-    )]
+)]
 public class AltinayApplicationModule : AbpModule
 {
     public override void ConfigureServices(ServiceConfigurationContext context)
@@ -27,5 +30,8 @@ public class AltinayApplicationModule : AbpModule
         {
             options.AddMaps<AltinayApplicationModule>();
         });
+
+        // Bildirim sistemi servislerini kaydet
+        // TODO: Servisler oluşturulduktan sonra aktifleştirilecek
     }
 }

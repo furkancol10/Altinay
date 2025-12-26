@@ -94,7 +94,18 @@
         //Project groups
         "ProjectGroup": "Project Group",
         "ProjectGroups": "Project Groups",
-        "NewProjectGroup": "New Project Group"
+        "NewProjectGroup": "New Project Group",
+
+        //Project Tracking
+        "Menu:ProjectTracking": "Project Tracking",
+        "Permission:ProjectTracking": "Project Tracking",
+        "Permission:Create": "Create",
+        "Permission:Update": "Update",
+        "Permission:Delete": "Delete",
+        "Permission:ManageProjects": "Manage Projects",
+        "Permission:ManageIssues": "Manage Issues",
+
+        // Bildirim sistemi
 
     }
 }

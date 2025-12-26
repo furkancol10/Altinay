@@ -1,0 +1,6 @@
+2025-09-05 10:46:43.674 +03:00 [INF] Started database migrations...
+2025-09-05 10:46:43.687 +03:00 [INF] Migrating schema for host database...
+2025-09-05 10:46:44.422 +03:00 [WRN] The property 'ProjectGroup.ExtraProperties' was first mapped explicitly and then ignored. Consider not mapping the property in the first place.
+2025-09-05 10:46:44.722 +03:00 [WRN] Entity 'Room' has a global query filter defined and is the required end of a relationship with the entity 'Booking'. This may lead to unexpected results when the required entity is filtered out. Either configure the navigation as optional, or define matching query filters for both entities in the navigation. See https://go.microsoft.com/fwlink/?linkid=2131316 for more information.
+2025-09-05 10:46:44.723 +03:00 [WRN] Entity 'IdentityUser' has a global query filter defined and is the required end of a relationship with the entity 'ProjectGroupUser'. This may lead to unexpected results when the required entity is filtered out. Either configure the navigation as optional, or define matching query filters for both entities in the navigation. See https://go.microsoft.com/fwlink/?linkid=2131316 for more information.
+2025-09-05 10:46:44.943 +03:00 [ERR] An error occurred using the connection to database '' on server ''.

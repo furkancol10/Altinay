@@ -1,0 +1,188 @@
+﻿@namespace Altinay.Blazor.Components.Pages.ProjectTracking
+@using Blazorise
+@using Volo.Abp
+@using Volo.Abp.Application.Dtos
+@using Altinay.ProjectTracking.IAppServices
+@using Altinay.ProjectTracking.ProjectTrackingDtos
+@using Altinay.ProjectTracking.CreateUpdateDtos
+@using Altinay.Domain.ProjectTracking
+
+@inject ITrackingIssueAppService IssueApp
+@inject ITrackingProjectAppService ProjectApp
+
+<Modal @bind-Visible="_visible" Size="ModalSize.Large" @ref="_modalRef">
+    <ModalContent>
+        <ModalHeader>
+            <ModalTitle>@(_isEdit ? "Edit Issue" : "New Issue")</ModalTitle>
+            <CloseButton Clicked="HideAsync" />
+        </ModalHeader>
+
+        <ModalBody>
+            <Validations @ref="_validations" Mode="ValidationMode.Auto" ValidateOnLoad="false" Model="@Input">
+                <Fields>
+
+                    <!-- Project -->
+                    <Field>
+                        <FieldLabel RequiredIndicator>Project</FieldLabel>
+                        <Select TValue="Guid"
+                                SelectedValue="Input.ProjectId"
+                                SelectedValueChanged="@(v => Input.ProjectId = v)"
+                                SelectedValueExpression="@(()=> Input.ProjectId)">
+                            @foreach (var p in _projects)
+                            {
+                                <SelectItem Value="@p.Id">@p.Name</SelectItem>
+                            }
+                        </Select>
+                        <ValidationError />
+                    </Field>
+
+                    <!-- Title -->
+                    <Field>
+                        <FieldLabel RequiredIndicator>Title</FieldLabel>
+                        <TextEdit @bind-Text="Input.Title" Placeholder="e.g. Login bug" />
+                        <ValidationError />
+                    </Field>
+
+                    <!-- Description -->
+                    <Field>
+                        <FieldLabel>Description</FieldLabel>
+                        <MemoEdit @bind-Text="Input.Description" Rows="4" />
+                    </Field>
+
+                    <!-- Priority -->
+                    <Field>
+                        <FieldLabel>Priority</FieldLabel>
+                        <Select TValue="IssuePriority"
+                                SelectedValue="Input.Priority"
+                                SelectedValueChanged="@(v => Input.Priority = v)"
+                                SelectedValueExpression="@(()=> Input.Priority)">
+                            @foreach (var pr in Enum.GetValues<IssuePriority>())
+                            {
+                                <SelectItem Value="@pr">@pr</SelectItem>
+                            }
+                        </Select>
+                    </Field>
+
+                    <!-- Due Date -->
+                    <Field>
+                        <FieldLabel>Due Date</FieldLabel>
+                        <DateEdit TValue="DateTime?"
+                                  Date="Input.DueDate"
+                                  DateChanged="@(v => Input.DueDate = v)"
+                                  DateExpression="@(()=> Input.DueDate)" />
+                    </Field>
+
+                </Fields>
+            </Validations>
+        </ModalBody>
+
+        <ModalFooter>
+            <Button Color="Color.Secondary" Clicked="HideAsync">Cancel</Button>
+            <Button Color="Color.Primary" Disabled="@_saving" Clicked="SaveAsync">
+                @if (_saving) { <Spinner Size="SpinnerSize.Small" Class="me-2" /> }
+                Save
+            </Button>
+        </ModalFooter>
+    </ModalContent>
+</Modal>
+
+@code {
+    // dışarı ile haberleşme
+    [Parameter] public EventCallback Saved { get; set; }
+
+    private Modal? _modalRef;
+    private Validations? _validations;
+    private bool _visible;
+    private bool _saving;
+    private bool _isEdit;
+    private Guid _editId;
+
+    // form modeli
+    private CreateUpdateTrackingIssueDto Input = new();
+
+    // dropdown datası
+    private List<TrackingProjectDto> _projects = new();
+
+    // ---- public API (ProjectTracking.razor buradan çağırıyor) ----
+    public async Task ShowCreateAsync()
+    {
+        _isEdit = false;
+        _editId = Guid.Empty;
+
+        await LoadProjectsAsync();
+
+        Input = new CreateUpdateTrackingIssueDto
+        {
+            ProjectId = _projects.FirstOrDefault()?.Id ?? Guid.Empty,
+            Priority  = IssuePriority.Medium,
+            Status    = IssueStatus.ToDo
+        };
+
+        _visible = true;
+        StateHasChanged();
+    }
+
+    public async Task ShowEditAsync(TrackingIssueDto dto)
+    {
+        _isEdit = true;
+        _editId = dto.Id;
+
+        await LoadProjectsAsync();
+
+        Input = new CreateUpdateTrackingIssueDto
+        {
+            ProjectId   = dto.ProjectId,
+            Title       = dto.Title,
+            Description = dto.Description,
+            Priority    = dto.Priority,
+            Status      = dto.Status,
+            DueDate     = dto.DueDate
+        };
+
+        _visible = true;
+        StateHasChanged();
+    }
+
+    public Task HideAsync()
+    {
+        _visible = false;
+        return Task.CompletedTask;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_validations is not null && !await _validations.ValidateAll())
+            return;
+
+        _saving = true;
+        try
+        {
+            if (_isEdit)
+            {
+                await IssueApp.UpdateAsync(_editId, Input);
+            }
+            else
+            {
+                await IssueApp.CreateAsync(Input);
+            }
+
+            await HideAsync();
+            if (Saved.HasDelegate)
+                await Saved.InvokeAsync();
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private async Task LoadProjectsAsync()
+    {
+        var list = await ProjectApp.GetListAsync(new PagedAndSortedResultRequestDto
+        {
+            MaxResultCount = 200
+        });
+
+        _projects = list.Items?.ToList() ?? new();
+    }
+}

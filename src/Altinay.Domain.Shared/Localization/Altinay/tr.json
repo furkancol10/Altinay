@@ -56,6 +56,17 @@
     "MinAgeCanBeHigherThan18!": "Min Yaş 18'den Büyük Olmalıdır !",
     "MaxAgeCanBeLowerThan60!": "Max Yaş 60'tan Küçük Olmalıdır !",
     "MinAgeCanBeLowerThanMaxAge!": "Min Yaş, Max Yaştan Küçük Olmalıdır !",
-    "Pending": "Bekliyor"
+    "Pending": "Bekliyor",
+
+    //Project Tracking
+    "Menu:ProjectTracking": "Proje Takibi",
+    "Permission:ProjectTracking": "Proje Takibi",
+    "Permission:Create": "Oluştur",
+    "Permission:Update": "Güncelle",
+    "Permission:Delete": "Sil",
+    "Permission:ManageProjects": "Projeleri Yönet",
+    "Permission:ManageIssues": "Görevleri Yönet",
+
+    // Bildirim sistemi
   }
 }

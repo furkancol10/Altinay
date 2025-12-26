@@ -3,6 +3,7 @@
 @using Microsoft.Extensions.Hosting
 @using Volo.Abp.AspNetCore.Components.Server.LeptonXLiteTheme.Bundling
 @using Volo.Abp.AspNetCore.Components.Web.Theming.Bundling
+
 @inject IHostEnvironment Env
 @{
     var rtl = CultureHelper.IsRtl ? "rtl" : string.Empty;
@@ -29,6 +30,9 @@
     <AbpScripts BundleName="@BlazorLeptonXLiteThemeBundles.Scripts.Global" />
 
     <script src="_framework/blazor.web.js"></script>
+    <script src="js/dragdrop.js"></script>
+    <script src="js/fileUpload.js"></script>
+    <script src="js/notifications.js"></script>
 
     <div id="blazor-error-ui">
         @if (Env.IsDevelopment())

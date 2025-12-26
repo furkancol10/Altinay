@@ -30,4 +30,14 @@ public static class AltinayPermissions
         public const string Delete = Default + ".Delete";
     }
 
+    public static class ProjectTracking
+    {
+        public const string Default = GroupName + ".ProjectTracking";
+        public const string Create = Default + ".Create";
+        public const string Update = Default + ".Update";
+        public const string Delete = Default + ".Delete";
+        public const string ManageProjects = Default + ".ManageProjects";
+        public const string ManageIssues = Default + ".ManageIssues";
+    }
+
 }

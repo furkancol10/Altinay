@@ -27,6 +27,12 @@ public class AltinayPermissionDefinitionProvider : PermissionDefinitionProvider
         projectGroupsPermission.AddChild(AltinayPermissions.ProjectGroups.Update, L("Permission:Update"));
         projectGroupsPermission.AddChild(AltinayPermissions.ProjectGroups.Delete, L("Permission:Delete"));
 
+        var projectTrackingPermission = myGroup.AddPermission(AltinayPermissions.ProjectTracking.Default, L("Permission:ProjectTracking"));
+        projectTrackingPermission.AddChild(AltinayPermissions.ProjectTracking.Create, L("Permission:Create"));
+        projectTrackingPermission.AddChild(AltinayPermissions.ProjectTracking.Update, L("Permission:Update"));
+        projectTrackingPermission.AddChild(AltinayPermissions.ProjectTracking.Delete, L("Permission:Delete"));
+        projectTrackingPermission.AddChild(AltinayPermissions.ProjectTracking.ManageProjects, L("Permission:ManageProjects"));
+        projectTrackingPermission.AddChild(AltinayPermissions.ProjectTracking.ManageIssues, L("Permission:ManageIssues"));
 
     }
 

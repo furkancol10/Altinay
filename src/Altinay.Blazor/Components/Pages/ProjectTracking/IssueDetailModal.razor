@@ -1,0 +1,1596 @@
+@using Altinay.ProjectTracking.ProjectTrackingDtos
+@using Altinay.ProjectTracking.CreateUpdateDtos
+@using Altinay.ProjectTracking.IAppServices
+@using Volo.Abp.Users
+@using Volo.Abp.Identity
+@using System.IO
+@using Microsoft.JSInterop
+@using Microsoft.AspNetCore.Components.Forms
+@inject ITrackingCommentAppService CommentApp
+@inject ITrackingIssueAppService IssueApp
+@inject ITrackingAttachmentAppService AttachmentApp
+@inject ITrackingTagAppService TagApp
+@inject ITrackingTimeLogAppService TimeLogApp
+@inject ICurrentUser CurrentUser
+@inject IIdentityUserAppService UserApp
+@inject IJSRuntime JSRuntime
+
+
+@if (_isVisible)
+{
+<div class="modal-overlay" @onclick="CloseModal">
+    <div class="modal-content" @onclick:stopPropagation>
+        <!-- Modal Header -->
+        <div class="modal-header">
+            <div class="header-left">
+                @if (_isEditingTitle)
+                {
+                    <div class="title-edit-container">
+                        <input type="text" class="title-input" @bind="editableTitle" />
+                        <div class="title-actions">
+                            <button class="btn-save" @onclick="SaveTitle">Save</button>
+                            <button class="btn-cancel" @onclick="CancelEditTitle">Cancel</button>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="title-display-container">
+                        <h4 class="modal-title">@(_issue?.Title ?? "Task Details")</h4>
+                        <button class="edit-title-btn" @onclick="ToggleEditTitle">
+                            <i class="fas fa-pencil-alt"></i>
+                        </button>
+						</div>
+                }
+                <div class="meta-info">
+                    <span class="modified">Modified: @(_issue?.CreationTime.ToString("dd MMM yyyy") ?? "Unknown")</span>
+                    <span class="created">Created: @(_issue?.CreationTime.ToString("dd MMM yyyy") ?? "Unknown")</span>
+                </div>
+            </div>
+            <button class="close-btn" @onclick="CloseModal">×</button>
+					</div>
+
+        <!-- Tab Navigation -->
+        <div class="tab-navigation">
+            <button class="tab-btn @(_activeTab == "details" ? "active" : "")" @onclick="@(() => SetActiveTab("details"))">
+                <i class="fas fa-home"></i> Details
+            </button>
+            <button class="tab-btn @(_activeTab == "attachments" ? "active" : "")" @onclick="@(() => SetActiveTab("attachments"))">
+                <i class="fas fa-paperclip"></i> Attachments
+            </button>
+            <button class="tab-btn @(_activeTab == "comments" ? "active" : "")" @onclick="@(() => SetActiveTab("comments"))">
+                <i class="fas fa-comments"></i> Comments
+            </button>
+            <button class="tab-btn @(_activeTab == "activity" ? "active" : "")" @onclick="@(() => SetActiveTab("activity"))">
+                <i class="fas fa-bolt"></i> Activity
+            </button>
+					</div>
+
+        <!-- Tab Content -->
+        <div class="tab-content">
+            @if (_activeTab == "details")
+            {
+                <div class="details-content">
+
+                    <!-- Assignee Section -->
+                    <div class="field-section">
+                        <div class="field-label">Assignee</div>
+                        <div class="assignee-container">
+                            @if (_issue?.AssigneeUserId.HasValue == true)
+                            {
+                                <div class="selected-assignee">
+                                    <div class="user-photo">
+                                        <span class="user-initials">@GetAssigneeInitials()</span>
+                                    </div>
+                                    <span class="assignee-name">@GetAssigneeName()</span>
+                                    <button class="assignee-remove" @onclick="RemoveAssignee">×</button>
+                                </div>
+                            }
+                            else
+                            {
+                                <span class="assignee-name unassigned">Unassigned</span>
+                            }
+                            <button class="assignee-dropdown" @onclick="ToggleAssigneeDropdown" @onclick:stopPropagation="true">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                        </div>
+                        @if (_showAssigneeDropdown)
+                        {
+                            <div class="assignee-dropdown-menu">
+                                @if (_users.Any())
+                                {
+                                    @foreach (var user in _users)
+                                    {
+                                        <div class="assignee-option @(user.Id == _issue?.AssigneeUserId ? "selected" : "")" 
+                                             @onclick="@(() => AssignUser(user.Id))" @onclick:stopPropagation="true">
+                                            <div class="user-photo">
+                                                <span class="user-initials">@user.UserName.Substring(0, 1).ToUpper()</span>
+                                            </div>
+                                            <span class="user-name">@user.UserName</span>
+                                            @if (user.Id == _issue?.AssigneeUserId)
+                                            {
+                                                <i class="fas fa-check selected-icon"></i>
+                                            }
+                                        </div>
+                                    }
+                                }
+                                else
+                                {
+                                    <div style="padding: 8px; color: #666;">No users available</div>
+                                }
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Due Date Section -->
+                    <div class="field-section">
+                        <div class="field-label">Due Date</div>
+                        <div class="date-container">
+                            @if (_isEditingDueDate)
+                            {
+                                <input type="date" class="date-input" @bind="editableDueDate" />
+                                <div class="date-actions">
+                                    <button class="btn-save" @onclick="SaveDueDate">Save</button>
+                                    <button class="btn-cancel" @onclick="CancelEditDueDate">Cancel</button>
+                                </div>
+                            }
+                            else
+                            {
+                                <i class="fas fa-calendar-plus"></i>
+                                <span>@(_issue?.DueDate?.ToString("dd MMM yyyy") ?? "No due date")</span>
+                                <button class="edit-btn" @onclick="ToggleEditDueDate">
+                                    <i class="fas fa-pencil-alt"></i>
+                                </button>
+                            }
+						</div>
+					</div>
+
+                    <!-- Mark as Done -->
+                    <div class="field-section">
+                        <label class="checkbox-container">
+                            <input type="checkbox" @bind="isMarkedAsDone" @bind:after="ToggleMarkAsDone" />
+                            <span class="checkmark"></span>
+                            <i class="fas fa-check"></i> Mark as done
+                        </label>
+					</div>
+
+                    <!-- Description Section -->
+                    <div class="field-section">
+                        <div class="description-header">
+                            <div class="field-label">Description</div>
+                            <button class="edit-btn" @onclick="ToggleEditDescription">
+                                <i class="fas fa-pencil-alt"></i>
+                            </button>
+                        </div>
+                        @if (_isEditingDescription)
+                        {
+                            <textarea class="description-edit" @bind="editableDescription" rows="6"></textarea>
+                            <div class="edit-actions">
+                                <button class="btn-save" @onclick="SaveDescription">Save</button>
+                                <button class="btn-cancel" @onclick="CancelEditDescription">Cancel</button>
+                            </div>
+					}
+					else
+					{
+                            <div class="description-text">
+                                @if (string.IsNullOrEmpty(_issue?.Description))
+                                {
+                                    <p class="empty-description">No description provided</p>
+                                }
+                                else
+                                {
+                                    <div class="description-content">@_issue.Description</div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+            else if (_activeTab == "attachments")
+            {
+                <div class="attachments-content">
+                    <div class="upload-area" @onclick="TriggerFileUpload">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                        <p>Drop files here or click to upload</p>
+                        <input type="file" id="fileInput" multiple class="file-input" @ref="fileInput" @onchange="HandleFileUpload" style="display: none;" />
+                    </div>
+                    <div class="attachments-list">
+                        @if (_attachments.Any())
+                        {
+                            @foreach (var attachment in _attachments)
+                            {
+                                <div class="attachment-item">
+                                    <i class="fas @GetFileIcon(attachment.FileName)"></i>
+                                    <span class="attachment-name">@attachment.FileName</span>
+                                    <span class="attachment-size">@FormatFileSize(attachment.FileSize)</span>
+                                    <button class="attachment-download" @onclick="@(() => DownloadFile(attachment))">Download</button>
+                                    <button class="attachment-delete" @onclick="@(() => DeleteAttachment(attachment.Id))">×</button>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="empty-state">
+                                <i class="fas fa-paperclip"></i>
+                                <p>No attachments yet</p>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+            else if (_activeTab == "comments")
+            {
+                <div class="comments-content">
+                    <div class="comments-list">
+                        @if (_comments.Any())
+                        {
+                            @foreach (var comment in _comments)
+                            {
+                                <div class="comment-item">
+                                    <div class="comment-avatar">@comment.UserName.Substring(0, 1).ToUpper()</div>
+                                    <div class="comment-body">
+                                        <div class="comment-header">
+                                            <strong>@comment.UserName</strong>
+                                            <div class="comment-actions">
+                                                <span class="comment-time">@comment.CreationTime.ToString("dd MMM yyyy HH:mm")</span>
+                                                @if (comment.UserId == CurrentUser.Id)
+                                                {
+                                                    <button class="comment-delete" @onclick="@(() => DeleteComment(comment.Id))" title="Delete comment">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                }
+                                            </div>
+                                        </div>
+                                        <div class="comment-text">@comment.Content</div>
+                                    </div>
+                                </div>
+                            }
+					}
+					else
+					{
+                            <div class="empty-state">
+                                <i class="fas fa-comments"></i>
+                                <p>No comments yet</p>
+                            </div>
+                        }
+                    </div>
+                    <div class="add-comment">
+                        <textarea class="comment-input" @bind="newComment" placeholder="Add a comment..." rows="3"></textarea>
+                        <button class="btn-comment" @onclick="AddComment" disabled="@string.IsNullOrWhiteSpace(newComment)">
+                            Add Comment
+                        </button>
+                    </div>
+                </div>
+            }
+            else if (_activeTab == "activity")
+            {
+                <div class="activity-content">
+                    <div class="activity-list">
+                        <div class="activity-item">
+                            <i class="fas fa-plus-circle activity-icon created"></i>
+                            <div class="activity-text">
+                                <span>Task created by @CurrentUser.UserName</span>
+                                <small>@(_issue?.CreationTime.ToString("dd MMM yyyy HH:mm") ?? "")</small>
+                            </div>
+                        </div>
+                        @if (_issue?.StartedTime.HasValue == true)
+                        {
+                            <div class="activity-item">
+                                <i class="fas fa-play-circle activity-icon started"></i>
+                                <div class="activity-text">
+                                    <span>Task started</span>
+                                    <small>@(_issue.StartedTime?.ToString("dd MMM yyyy HH:mm") ?? "")</small>
+                                </div>
+                            </div>
+                        }
+                        @if (_issue?.DoneTime.HasValue == true)
+                        {
+                            <div class="activity-item">
+                                <i class="fas fa-check-circle activity-icon completed"></i>
+                                <div class="activity-text">
+                                    <span>Task completed</span>
+                                    <small>@(_issue.DoneTime?.ToString("dd MMM yyyy HH:mm") ?? "")</small>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+}
+
+@code {
+    [Parameter] public TrackingIssueDto? Issue { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [CascadingParameter] public ProjectTracking? ParentComponent { get; set; }
+
+	private TrackingIssueDto? _issue;
+    private List<TrackingCommentDto> _comments = new();
+    private List<IdentityUserDto> _users = new();
+    private string newComment = string.Empty;
+    private bool _isVisible = false;
+    private string _activeTab = "details";
+    private bool _isEditingTitle = false;
+    private string editableTitle = string.Empty;
+    private bool _isEditingDescription = false;
+    private string editableDescription = string.Empty;
+    private bool isMarkedAsDone = false;
+    private bool _showAssigneeDropdown = false;
+    private bool _isEditingDueDate = false;
+    private DateTime? editableDueDate;
+    private List<TrackingAttachmentDto> _attachments = new();
+    private List<TrackingTagDto> _tags = new();
+    private List<TrackingTimeLogDto> _timeLogs = new();
+    private TrackingTimeLogDto? _activeTimer = null;
+    private ElementReference fileInput;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Issue != null)
+        {
+            _issue = Issue;
+            await LoadCommentsAsync();
+            await LoadUsersAsync();
+            isMarkedAsDone = _issue.Status == IssueStatus.Done;
+        }
+    }
+
+    private async Task LoadCommentsAsync()
+    {
+        if (_issue != null)
+        {
+            try
+            {
+                _comments = await CommentApp.GetCommentsAsync(_issue.Id);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading comments: {ex.Message}");
+                _comments = new List<TrackingCommentDto>();
+            }
+        }
+    }
+
+    private async Task AddComment()
+    {
+        if (!string.IsNullOrWhiteSpace(newComment) && _issue != null)
+        {
+            try
+            {
+                var createCommentDto = new CreateCommentDto
+                {
+                    IssueId = _issue.Id,
+                    UserId = CurrentUser.Id ?? Guid.Empty,
+                    Content = newComment
+                };
+                
+                await CommentApp.CreateCommentAsync(createCommentDto);
+                await LoadCommentsAsync();
+                
+                // Yorum bildirimi gönder - localStorage'a kaydet ki tüm kullanıcılar görebilsin
+                var commenterName = CurrentUser.UserName ?? CurrentUser.Name ?? CurrentUser.Email?.Split('@')[0] ?? "Bilinmeyen Kullanıcı";
+                var commentPreview = newComment.Length > 50 ? newComment.Substring(0, 50) + "..." : newComment;
+                
+                // Bildirimi localStorage'a kaydet
+                var notification = new
+                {
+                    id = Guid.NewGuid().ToString(),
+                    title = "💬 Yeni Yorum!",
+                    message = $"{commenterName} '{_issue.Title}' görevine yorum ekledi: \"{commentPreview}\"",
+                    type = "comment",
+                    time = DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss"),
+                    isRead = false
+                };
+                
+                await JSRuntime.InvokeVoidAsync("saveNotificationToStorage", notification);
+                
+                
+                // Eğer parent component varsa, ona da bildir
+                if (ParentComponent != null)
+                {
+                    await ParentComponent.ShowCommentNotification(_issue.Title, commenterName, commentPreview);
+                }
+                
+                newComment = string.Empty;
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error adding comment: {ex.Message}");
+            }
+        }
+    }
+
+    private void SetActiveTab(string tab)
+    {
+        _activeTab = tab;
+        StateHasChanged();
+    }
+
+    private void ToggleEditTitle()
+    {
+        _isEditingTitle = !_isEditingTitle;
+        if (_isEditingTitle)
+        {
+            editableTitle = _issue?.Title ?? "";
+        }
+        StateHasChanged();
+    }
+
+    private async Task SaveTitle()
+    {
+        if (_issue != null && !string.IsNullOrWhiteSpace(editableTitle))
+        {
+            // Veritabanına kaydet
+            var updateDto = new CreateUpdateTrackingIssueDto
+            {
+                ProjectId = _issue.ProjectId,
+                Title = editableTitle,
+                Description = _issue.Description,
+                Status = _issue.Status,
+                Priority = _issue.Priority,
+                AssigneeUserId = _issue.AssigneeUserId,
+                DueDate = _issue.DueDate
+            };
+            
+            await IssueApp.UpdateAsync(_issue.Id, updateDto);
+            
+            // UI'yi güncelle
+            _issue.Title = editableTitle;
+            _isEditingTitle = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CancelEditTitle()
+    {
+        _isEditingTitle = false;
+        editableTitle = string.Empty;
+        StateHasChanged();
+    }
+
+    private void ToggleEditDescription()
+    {
+        _isEditingDescription = !_isEditingDescription;
+        if (_isEditingDescription)
+        {
+            editableDescription = _issue?.Description ?? "";
+        }
+        StateHasChanged();
+    }
+
+    private async Task SaveDescription()
+    {
+        if (_issue != null)
+        {
+            // Veritabanına kaydet
+            var updateDto = new CreateUpdateTrackingIssueDto
+            {
+                ProjectId = _issue.ProjectId,
+                Title = _issue.Title,
+                Description = editableDescription,
+                Status = _issue.Status,
+                Priority = _issue.Priority,
+                AssigneeUserId = _issue.AssigneeUserId,
+                DueDate = _issue.DueDate
+            };
+            
+            await IssueApp.UpdateAsync(_issue.Id, updateDto);
+            
+            // UI'yi güncelle
+            _issue.Description = editableDescription;
+            _isEditingDescription = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CancelEditDescription()
+    {
+        _isEditingDescription = false;
+        editableDescription = string.Empty;
+        StateHasChanged();
+    }
+
+    private async Task ToggleMarkAsDone()
+    {
+        if (_issue != null)
+        {
+            _issue.Status = isMarkedAsDone ? IssueStatus.Done : IssueStatus.ToDo;
+            StateHasChanged();
+        }
+    }
+
+    private async Task RemoveAssignee()
+    {
+        if (_issue != null)
+        {
+            _issue.AssigneeUserId = null;
+            StateHasChanged();
+        }
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        try
+        {
+            var result = await UserApp.GetListAsync(new GetIdentityUsersInput { MaxResultCount = 1000 });
+            _users = result.Items.ToList();
+            Console.WriteLine($"Loaded {_users.Count} users");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading users: {ex.Message}");
+            _users = new List<IdentityUserDto>();
+        }
+    }
+
+
+    private void ToggleAssigneeDropdown()
+    {
+        _showAssigneeDropdown = !_showAssigneeDropdown;
+        StateHasChanged();
+    }
+
+    private void CloseAssigneeDropdown()
+    {
+        if (_showAssigneeDropdown)
+        {
+            _showAssigneeDropdown = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task AssignUser(Guid userId)
+    {
+        if (_issue != null)
+        {
+            // Veritabanına kaydet
+            await IssueApp.AssignAsync(_issue.Id, userId);
+            
+            // UI'yi güncelle
+            _issue.AssigneeUserId = userId;
+            _showAssigneeDropdown = false;
+            StateHasChanged();
+        }
+    }
+
+    private string GetAssigneeName()
+    {
+        if (_issue?.AssigneeUserId.HasValue == true)
+        {
+            var user = _users.FirstOrDefault(u => u.Id == _issue.AssigneeUserId);
+            return user?.UserName ?? "Unknown User";
+        }
+        return "Unassigned";
+    }
+
+    private string GetAssigneeInitials()
+    {
+        if (_issue?.AssigneeUserId.HasValue == true)
+        {
+            var user = _users.FirstOrDefault(u => u.Id == _issue.AssigneeUserId);
+            if (user != null)
+            {
+                var nameParts = user.UserName.Split(' ');
+                if (nameParts.Length >= 2)
+                {
+                    return $"{nameParts[0].Substring(0, 1)}{nameParts[1].Substring(0, 1)}".ToUpper();
+                }
+                return user.UserName.Substring(0, 1).ToUpper();
+            }
+        }
+        return "U";
+    }
+
+    private async Task DeleteComment(Guid commentId)
+    {
+        try
+        {
+            // TODO: Implement delete comment service
+            _comments.RemoveAll(c => c.Id == commentId);
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error deleting comment: {ex.Message}");
+        }
+    }
+
+    private void ToggleEditDueDate()
+    {
+        _isEditingDueDate = !_isEditingDueDate;
+        if (_isEditingDueDate)
+        {
+            editableDueDate = _issue?.DueDate;
+        }
+        StateHasChanged();
+    }
+
+    private async Task SaveDueDate()
+    {
+        if (_issue != null)
+        {
+            // Veritabanına kaydet
+            var updateDto = new CreateUpdateTrackingIssueDto
+            {
+                ProjectId = _issue.ProjectId,
+                Title = _issue.Title,
+                Description = _issue.Description,
+                Status = _issue.Status,
+                Priority = _issue.Priority,
+                AssigneeUserId = _issue.AssigneeUserId,
+                DueDate = editableDueDate
+            };
+            
+            await IssueApp.UpdateAsync(_issue.Id, updateDto);
+            
+            // UI'yi güncelle
+            _issue.DueDate = editableDueDate;
+            _isEditingDueDate = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CancelEditDueDate()
+    {
+        _isEditingDueDate = false;
+        editableDueDate = null;
+        StateHasChanged();
+    }
+
+    private async Task TriggerFileUpload()
+    {
+        await JSRuntime.InvokeVoidAsync("clickFileInput", fileInput);
+    }
+
+    private async Task HandleFileUpload(ChangeEventArgs e)
+    {
+        if (_issue == null || CurrentUser.Id == null) return;
+
+        try
+        {
+            var files = (IBrowserFile[])e.Value;
+            if (files == null || files.Length == 0) return;
+
+            foreach (var file in files)
+            {
+                // Create a temporary file path (in real app, you'd save to proper storage)
+                var fileName = $"{Guid.NewGuid()}_{file.Name}";
+                var filePath = Path.Combine("wwwroot", "uploads", fileName);
+                
+                // Ensure directory exists
+                var directory = Path.GetDirectoryName(filePath);
+                if (!Directory.Exists(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
+
+                // Save file
+                using var stream = new FileStream(filePath, FileMode.Create);
+                await file.OpenReadStream().CopyToAsync(stream);
+
+                // Create attachment record
+                var createAttachmentDto = new CreateTrackingAttachmentDto
+                {
+                    IssueId = _issue.Id,
+                    UploadedByUserId = CurrentUser.Id.Value,
+                    FileName = file.Name,
+                    FilePath = filePath,
+                    ContentType = file.ContentType,
+                    FileSize = file.Size
+                };
+
+                await AttachmentApp.CreateAttachmentAsync(createAttachmentDto);
+            }
+
+            // Reload attachments
+            await LoadAttachmentsAsync();
+            StateHasChanged();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error uploading file: {ex.Message}");
+        }
+    }
+
+    private string GetFileIcon(string fileName)
+    {
+        var extension = Path.GetExtension(fileName).ToLower();
+        return extension switch
+        {
+            ".pdf" => "fa-file-pdf",
+            ".doc" or ".docx" => "fa-file-word",
+            ".xls" or ".xlsx" => "fa-file-excel",
+            ".jpg" or ".jpeg" or ".png" or ".gif" => "fa-file-image",
+            ".zip" or ".rar" => "fa-file-archive",
+            _ => "fa-file"
+        };
+    }
+
+
+    private async Task DownloadFile(TrackingAttachmentDto attachment)
+    {
+        // TODO: Implement file download
+        Console.WriteLine($"Downloading {attachment.FileName}");
+    }
+
+    private async Task DeleteAttachment(Guid attachmentId)
+    {
+        // TODO: Implement attachment deletion
+        _attachments.RemoveAll(a => a.Id == attachmentId);
+        StateHasChanged();
+    }
+
+    private async Task CloseModal()
+    {
+        await OnClose.InvokeAsync();
+    }
+
+	public async Task ShowAsync(TrackingIssueDto issue)
+	{
+        Console.WriteLine($"IssueDetailModal.ShowAsync called for: {issue.Title}");
+		_issue = issue;
+        await LoadCommentsAsync();
+        await LoadUsersAsync();
+        await LoadAttachmentsAsync();
+        await LoadTagsAsync();
+        await LoadTimeLogsAsync();
+        await LoadActiveTimerAsync();
+        isMarkedAsDone = _issue.Status == IssueStatus.Done;
+        _isVisible = true;
+        Console.WriteLine($"Modal visibility set to: {_isVisible}");
+        StateHasChanged();
+    }
+
+    public async Task HideAsync()
+    {
+        _isVisible = false;
+        _issue = null;
+		_comments.Clear();
+        newComment = string.Empty;
+        _activeTab = "details";
+        _isEditingDescription = false;
+        editableDescription = string.Empty;
+        isMarkedAsDone = false;
+        StateHasChanged();
+    }
+
+    private async Task LoadAttachmentsAsync()
+    {
+        if (_issue != null)
+        {
+            try
+            {
+                _attachments = await AttachmentApp.GetAttachmentsAsync(_issue.Id);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading attachments: {ex.Message}");
+                _attachments = new List<TrackingAttachmentDto>();
+            }
+        }
+    }
+
+    private async Task LoadTagsAsync()
+    {
+        if (_issue != null)
+        {
+            try
+            {
+                _tags = await TagApp.GetIssueTagsAsync(_issue.Id);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading tags: {ex.Message}");
+                _tags = new List<TrackingTagDto>();
+            }
+        }
+    }
+
+    private async Task LoadTimeLogsAsync()
+    {
+        if (_issue != null)
+        {
+            try
+            {
+                _timeLogs = await TimeLogApp.GetTimeLogsAsync(_issue.Id);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading time logs: {ex.Message}");
+                _timeLogs = new List<TrackingTimeLogDto>();
+            }
+        }
+    }
+
+    private async Task LoadActiveTimerAsync()
+    {
+        if (_issue != null && CurrentUser.Id.HasValue)
+        {
+            try
+            {
+                _activeTimer = await TimeLogApp.GetActiveTimerAsync(_issue.Id, CurrentUser.Id.Value);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error loading active timer: {ex.Message}");
+                _activeTimer = null;
+            }
+        }
+    }
+
+    private async Task StartTimerAsync()
+    {
+        if (_issue != null && CurrentUser.Id.HasValue)
+        {
+            try
+            {
+                _activeTimer = await TimeLogApp.StartTimerAsync(_issue.Id, CurrentUser.Id.Value);
+                await LoadTimeLogsAsync();
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error starting timer: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task StopTimerAsync()
+    {
+        if (_activeTimer != null)
+        {
+            try
+            {
+                await TimeLogApp.StopTimerAsync(_activeTimer.Id);
+                _activeTimer = null;
+                await LoadTimeLogsAsync();
+                StateHasChanged();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error stopping timer: {ex.Message}");
+            }
+        }
+    }
+
+    private string FormatFileSize(long bytes)
+    {
+        if (bytes < 1024) return $"{bytes} B";
+        if (bytes < 1024 * 1024) return $"{bytes / 1024:F1} KB";
+        if (bytes < 1024 * 1024 * 1024) return $"{bytes / (1024 * 1024):F1} MB";
+        return $"{bytes / (1024 * 1024 * 1024):F1} GB";
+    }
+
+    private string FormatDuration(TimeSpan? duration)
+    {
+        if (!duration.HasValue) return "0h 0m";
+        
+        var totalHours = (int)duration.Value.TotalHours;
+        var minutes = duration.Value.Minutes;
+        
+        if (totalHours > 0)
+            return $"{totalHours}h {minutes}m";
+        else
+            return $"{minutes}m";
+    }
+}
+
+<style>
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.5);
+        z-index: 1050;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .modal-content {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        max-width: 800px;
+        width: 90%;
+        max-height: 85vh;
+        overflow: hidden;
+    }
+
+    .modal-header {
+        padding: 24px;
+        border-bottom: 1px solid #e1e5e9;
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        background: #f8f9fa;
+    }
+
+    .header-left {
+        flex: 1;
+    }
+
+    .modal-title {
+        color: #172b4d;
+        font-weight: 600;
+        font-size: 20px;
+        margin: 0 0 8px 0;
+    }
+
+    .title-display-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .edit-title-btn {
+        background: none;
+        border: none;
+        color: #6c757d;
+        cursor: pointer;
+        font-size: 14px;
+        padding: 4px;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+    }
+
+    .edit-title-btn:hover {
+        opacity: 1;
+        color: #007bff;
+    }
+
+    .title-edit-container {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .title-input {
+        padding: 8px 12px;
+        border: 1px solid #e1e5e9;
+        border-radius: 6px;
+        font-size: 20px;
+        font-weight: 600;
+        color: #172b4d;
+        width: 100%;
+    }
+
+    .title-actions {
+        display: flex;
+        gap: 8px;
+    }
+
+    .meta-info {
+        display: flex;
+        gap: 16px;
+        font-size: 14px;
+        color: #5e6c84;
+    }
+
+    .close-btn {
+        background: none;
+        border: none;
+        font-size: 24px;
+        color: #5e6c84;
+        cursor: pointer;
+        padding: 4px;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .close-btn:hover {
+        color: #172b4d;
+    }
+
+    .tab-navigation {
+        display: flex;
+        border-bottom: 1px solid #e1e5e9;
+        background: #f8f9fa;
+    }
+
+    .tab-btn {
+        background: none;
+        border: none;
+        padding: 16px 24px;
+        cursor: pointer;
+        color: #5e6c84;
+        font-size: 14px;
+        font-weight: 500;
+        border-bottom: 3px solid transparent;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .tab-btn:hover {
+        color: #172b4d;
+        background: rgba(0, 0, 0, 0.05);
+    }
+
+    .tab-btn.active {
+        color: #007bff;
+        border-bottom-color: #007bff;
+        background: white;
+    }
+
+    .tab-content {
+        padding: 24px;
+        max-height: 50vh;
+        overflow-y: auto;
+    }
+
+    .field-section {
+        margin-bottom: 24px;
+    }
+
+    .field-label {
+        font-weight: 600;
+        color: #172b4d;
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+
+    .selected-assignee {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        border: 1px solid #e1e5e9;
+    }
+
+    .user-photo {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 12px;
+    }
+
+    .add-tag-btn {
+        background: #f8f9fa;
+        border: 1px dashed #dee2e6;
+        color: #6c757d;
+        padding: 6px 12px;
+        border-radius: 16px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .add-tag-btn:hover {
+        background: #e9ecef;
+        color: #495057;
+    }
+
+    .no-tags {
+        color: #6c757d;
+        font-style: italic;
+        font-size: 12px;
+    }
+
+    .add-tag-modal {
+        margin-top: 8px;
+        padding: 12px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        border: 1px solid #e1e5e9;
+    }
+
+    .tag-modal-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+    }
+
+    .tag-remove {
+        background: none;
+        border: none;
+        color: white;
+        cursor: pointer;
+        font-size: 14px;
+        padding: 0;
+        width: 16px;
+        height: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .assignee-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        position: relative;
+        z-index: 1001;
+    }
+
+    .assignee-name {
+        padding: 8px 12px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        font-size: 14px;
+        color: #172b4d;
+    }
+
+    .assignee-name.unassigned {
+        color: #6c757d;
+        font-style: italic;
+    }
+
+    .assignee-dropdown-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: white;
+        border: 1px solid #e1e5e9;
+        border-radius: 6px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        z-index: 1002;
+        max-height: 200px;
+        overflow-y: auto;
+        margin-top: 4px;
+    }
+
+    .assignee-option {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        cursor: pointer;
+        transition: background-color 0.2s;
+    }
+
+    .assignee-option:hover {
+        background: #f8f9fa;
+    }
+
+    .assignee-option.selected {
+        background: #e3f2fd;
+        color: #1976d2;
+    }
+
+    .user-avatar {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #007bff;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .user-name {
+        font-size: 14px;
+    }
+
+    .assignee-remove {
+        background: none;
+        border: none;
+        color: #dc3545;
+        cursor: pointer;
+        font-size: 16px;
+        padding: 4px;
+    }
+
+    .assignee-dropdown {
+        background: none;
+        border: none;
+        color: #5e6c84;
+        cursor: pointer;
+        font-size: 12px;
+        padding: 4px;
+        transition: color 0.2s;
+    }
+
+    .assignee-dropdown:hover {
+        color: #007bff;
+    }
+
+    .date-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        color: #172b4d;
+    }
+
+    .date-dropdown {
+        background: none;
+        border: none;
+        color: #5e6c84;
+        cursor: pointer;
+        font-size: 12px;
+        padding: 4px;
+    }
+
+    .checkbox-container {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        color: #172b4d;
+    }
+
+    .checkbox-container input[type="checkbox"] {
+        margin: 0;
+    }
+
+    .description-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 8px;
+    }
+
+    .edit-btn {
+        background: none;
+        border: none;
+        color: #007bff;
+        cursor: pointer;
+        font-size: 14px;
+        padding: 4px;
+    }
+
+    .description-text {
+        color: #172b4d;
+        line-height: 1.6;
+    }
+
+    .empty-description {
+        color: #6c757d;
+        font-style: italic;
+        margin: 0;
+    }
+
+    .description-content {
+        white-space: pre-wrap;
+        word-wrap: break-word;
+    }
+
+    .date-input {
+        padding: 8px 12px;
+        border: 1px solid #e1e5e9;
+        border-radius: 6px;
+        font-size: 14px;
+        width: 100%;
+    }
+
+    .date-actions {
+        display: flex;
+        gap: 8px;
+        margin-top: 8px;
+    }
+
+    .upload-area {
+        border: 2px dashed #e1e5e9;
+        border-radius: 8px;
+        padding: 40px;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.2s;
+        margin-bottom: 20px;
+    }
+
+    .upload-area:hover {
+        border-color: #007bff;
+        background: #f8f9fa;
+    }
+
+    .upload-area i {
+        font-size: 48px;
+        color: #6c757d;
+        margin-bottom: 16px;
+    }
+
+    .upload-area p {
+        color: #6c757d;
+        margin: 0;
+    }
+
+    .attachments-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .attachment-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        background: #f8f9fa;
+        border-radius: 6px;
+        border: 1px solid #e1e5e9;
+    }
+
+    .attachment-item i {
+        font-size: 20px;
+        color: #6c757d;
+    }
+
+    .attachment-name {
+        flex: 1;
+        font-weight: 500;
+        color: #172b4d;
+    }
+
+    .attachment-size {
+        color: #6c757d;
+        font-size: 12px;
+    }
+
+    .attachment-download {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        cursor: pointer;
+    }
+
+    .attachment-delete {
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        cursor: pointer;
+    }
+
+    .description-text ul {
+        margin: 8px 0;
+        padding-left: 20px;
+    }
+
+    .description-edit {
+        width: 100%;
+        border: 1px solid #e1e5e9;
+        border-radius: 6px;
+        padding: 12px;
+        font-size: 14px;
+        resize: vertical;
+    }
+
+    .edit-actions {
+        margin-top: 12px;
+        display: flex;
+        gap: 8px;
+    }
+
+    .btn-save {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    .comments-list {
+        max-height: 300px;
+        overflow-y: auto;
+        margin-bottom: 20px;
+    }
+
+    .comment-item {
+        display: flex;
+        gap: 12px;
+        padding: 16px 0;
+        border-bottom: 1px solid #e1e5e9;
+    }
+
+    .comment-item:last-child {
+        border-bottom: none;
+    }
+
+    .comment-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #007bff;
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        font-weight: 600;
+    }
+
+    .comment-body {
+        flex: 1;
+    }
+
+    .comment-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 4px;
+    }
+
+    .comment-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .comment-delete {
+        background: none;
+        border: none;
+        color: #dc3545;
+        cursor: pointer;
+        font-size: 12px;
+        padding: 4px;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+    }
+
+    .comment-delete:hover {
+        opacity: 1;
+    }
+
+    .comment-header strong {
+        color: #172b4d;
+        font-size: 14px;
+    }
+
+    .comment-time {
+        color: #5e6c84;
+        font-size: 12px;
+    }
+
+    .comment-text {
+        color: #172b4d;
+        line-height: 1.5;
+    }
+
+    .add-comment {
+        border-top: 1px solid #e1e5e9;
+        padding-top: 20px;
+    }
+
+    .comment-input {
+        width: 100%;
+        border: 1px solid #e1e5e9;
+        border-radius: 6px;
+        padding: 12px;
+        font-size: 14px;
+        resize: vertical;
+        margin-bottom: 12px;
+    }
+
+    .btn-comment {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 8px 16px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+    .btn-comment:disabled {
+        background: #6c757d;
+        cursor: not-allowed;
+    }
+
+    .activity-list {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+
+    .activity-item {
+        display: flex;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid #e1e5e9;
+    }
+
+    .activity-item:last-child {
+        border-bottom: none;
+    }
+
+    .activity-icon {
+        font-size: 16px;
+        width: 20px;
+        margin-top: 2px;
+    }
+
+    .activity-icon.created { color: #28a745; }
+    .activity-icon.started { color: #007bff; }
+    .activity-icon.completed { color: #28a745; }
+
+    .activity-text {
+        flex: 1;
+    }
+
+    .activity-text span {
+        color: #172b4d;
+        font-size: 14px;
+        display: block;
+        margin-bottom: 2px;
+    }
+
+    .activity-text small {
+        color: #5e6c84;
+        font-size: 12px;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 40px 20px;
+        color: #5e6c84;
+    }
+
+    .empty-state i {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+    }
+
+    .empty-state p {
+        margin-bottom: 16px;
+        font-size: 16px;
+    }
+
+    .btn-upload {
+        background: #007bff;
+        color: white;
+        border: none;
+        padding: 10px 20px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+
+     @@media (max-width: 768px) {
+        .modal-content {
+            width: 98%;
+            max-height: 95vh;
+        }
+        
+        .tab-navigation {
+            flex-wrap: wrap;
+        }
+        
+        .tab-btn {
+            padding: 12px 16px;
+            font-size: 13px;
+        }
+    }
+</style>

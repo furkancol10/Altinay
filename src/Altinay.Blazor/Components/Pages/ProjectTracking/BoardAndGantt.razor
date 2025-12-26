@@ -1,0 +1,69 @@
+@page "/project-tracking/board-gantt"
+@using Altinay.Blazor.Models
+@using Altinay.Blazor.Components.Gantt
+@using Altinay.Blazor.Components.Kanban
+@using Altinay.ProjectTracking.ProjectTrackingDtos
+@using Altinay.ProjectTracking.IAppServices
+@using IssueStatus = Altinay.Blazor.Models.IssueStatus
+@inject ITrackingIssueAppService IssueApp
+
+<h3>Project Tracking: Kanban + Gantt</h3>
+
+<div class="layout">
+    <div class="left">
+        <KanbanBoard Items="@_items"
+                     OnStatusChanged="HandleStatusChangedAsync"
+                     OnDatesChanged="HandleDatesChangedAsync" />
+    </div>
+
+    <div class="right">
+        <Components.Gantt.GanttChart Items="@_items"
+                    MinDate="@_min"
+                    MaxDate="@_max"
+                    PxPerDay="24"
+                    OnTaskDatesChanged="HandleDatesChangedAsync" />
+    </div>
+</div>
+
+<style>
+    .layout { display: grid; grid-template-columns: 1fr 1.2fr; gap: 16px; }
+    .left, .right { min-height: 70vh; }
+</style>
+
+@code {
+    private List<TrackingIssueVm> _items = new();
+    private DateTime _min = DateTime.Today.AddDays(-7);
+    private DateTime _max = DateTime.Today.AddDays(45);
+
+    protected override async Task OnInitializedAsync()
+    {
+        // AppService'ten çek ve VM'e map et
+        var list = await IssueApp.GetListAsync();
+        _items = list.Select(x => new TrackingIssueVm {
+            Id = x.Id,
+            Title = x.Title,
+            Status = (IssueStatus)x.Status,
+            Start = x.StartDate ?? DateTime.Today,
+            End = x.DueDate ?? DateTime.Today.AddDays(1),
+            AssigneeName = x.AssigneeName,
+            ProgressPercent = x.ProgressPercent,
+            Description = x.Description,
+            Priority = x.Priority.ToString(),
+            AssigneeId = x.AssigneeId,
+            ProjectId = x.ProjectId
+        }).ToList();
+    }
+
+    private async Task HandleDatesChangedAsync((Guid id, DateTime start, DateTime end) e)
+    {
+        // Gantt veya Kanban tarih değişimi → kalıcı kaydet
+        await IssueApp.UpdateDatesAsync(e.id, e.start, e.end);
+        StateHasChanged();
+    }
+
+    private async Task HandleStatusChangedAsync((Guid id, IssueStatus status) e)
+    {
+        await IssueApp.UpdateStatusAsync(e.id, (int)e.status);
+        StateHasChanged();
+    }
+}

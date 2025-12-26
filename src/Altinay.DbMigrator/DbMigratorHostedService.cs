@@ -38,6 +38,10 @@ public class DbMigratorHostedService : IHostedService
                 .GetRequiredService<AltinayDbMigrationService>()
                 .MigrateAsync();
 
+            // Check tables after migration
+            var checkTables = application.ServiceProvider.GetRequiredService<CheckTables>();
+            await checkTables.CheckDatabaseTables();
+
             await application.ShutdownAsync();
 
             _hostApplicationLifetime.StopApplication();

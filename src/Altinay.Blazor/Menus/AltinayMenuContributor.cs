@@ -33,6 +33,15 @@ public class AltinayMenuContributor : IMenuContributor
                 order: 0
             )
         );
+        context.Menu.AddItem(
+    new ApplicationMenuItem(
+        AltinayMenus.ProjectTracking,
+        l["Menu:ProjectTracking"],
+        "/project-tracking",               
+        icon: "fas fa-clipboard-list"        
+    )
+);
+
 
         context.Menu.AddItem(
         new ApplicationMenuItem(
@@ -72,7 +81,10 @@ public class AltinayMenuContributor : IMenuContributor
             "/project-groups",
             icon: "fas fa-users"
         )
+
     );    
+
+        // Bildirim sistemi artık ProjectTracking sayfasında entegre
 
         if (MultiTenancyConsts.IsEnabled)
         {
@@ -88,4 +100,5 @@ public class AltinayMenuContributor : IMenuContributor
 
         return Task.CompletedTask;
     }
+
 }

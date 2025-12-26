@@ -20,6 +20,10 @@ using Volo.Abp.PermissionManagement.EntityFrameworkCore;
 using Volo.Abp.SettingManagement.EntityFrameworkCore;
 using Volo.Abp.TenantManagement;
 using Volo.Abp.TenantManagement.EntityFrameworkCore;
+using Altinay.Domain.ProjectTracking;
+
+
+
 
 namespace Altinay.EntityFrameworkCore;
 
@@ -82,6 +86,24 @@ public class AltinayDbContext :
     //Project Groups
     public DbSet<ProjectGroup> ProjectGroups { get; set; }
     public DbSet<ProjectGroupUser> ProjectGroupUsers { get; set; } // <-- FIXED: was IdentityUser
+
+    //Project Tracking
+    public DbSet<TrackingProject> TrackingProjects { get; set; }
+    public DbSet<TrackingIssue> TrackingIssues { get; set; }
+    public DbSet<TrackingComment> TrackingComments { get; set; }
+    public DbSet<TrackingAttachment> TrackingAttachments { get; set; }
+    public DbSet<TrackingTag> TrackingTags { get; set; }
+    public DbSet<TrackingIssueTag> TrackingIssueTags { get; set; }
+    public DbSet<TrackingTimeLog> TrackingTimeLogs { get; set; }
+
+    //Project Tracking Members
+    public DbSet<TrackingProjectMember> TrackingProjectMembers { get; set; }
+
+    //Smart Notifications
+    public DbSet<SmartNotification> SmartNotifications { get; set; }
+    public DbSet<NotificationSetting> NotificationSettings { get; set; }
+
+
 
 
 
@@ -159,6 +181,43 @@ public class AltinayDbContext :
             
         });
 
+        //TRACKİNG PROJECT
+        // TrackingProject
+        builder.Entity<TrackingProject>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "TrackingProject", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            b.Property(x => x.Name).IsRequired().HasMaxLength(128);
+            b.Property(x => x.Key).IsRequired().HasMaxLength(8);
+
+            b.HasIndex(x => x.Key).IsUnique();
+        });
+
+        // TrackingIssue
+        builder.Entity<TrackingIssue>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "TrackingIssue", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            b.Property(x => x.Title).IsRequired().HasMaxLength(128);
+            b.Property(x => x.Status).IsRequired();   // enum
+            b.Property(x => x.Priority).IsRequired(); // enum
+
+            // indexler
+            b.HasIndex(x => x.ProjectId);
+            b.HasIndex(x => x.Status);
+            b.HasIndex(x => x.DueDate);
+
+            // ilişki: Issue -> Project
+            b.HasOne<TrackingProject>()
+             .WithMany()
+             .HasForeignKey(x => x.ProjectId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+
+
         //
         //Yöneticiler
         //
@@ -221,7 +280,7 @@ public class AltinayDbContext :
             b.Property(x => x.ProjectDescription);
         });
 
-        //FILES(FileAlias,DileDesriptşon IsActive)
+        
         builder.Entity<File>(b =>
         {
             b.ToTable(AltinayConsts.DbTablePrefix + "File", AltinayConsts.DbSchema);
@@ -280,5 +339,242 @@ public class AltinayDbContext :
             // Ensure a user can only be in a group once
             b.HasIndex(x => new { x.ProjectGroupId, x.IdentityUserId }).IsUnique();
         });
+
+        //TRACKİNG MEMBER 
+        builder.Entity<TrackingProjectMember>(b =>
+        {
+            b.ToTable("AppTrackingProjectMembers");
+            b.ConfigureByConvention();
+            b.HasIndex(x => new { x.ProjectId, x.UserId }).IsUnique();
+        });
+
+        //SMART NOTIFICATIONS
+        builder.Entity<SmartNotification>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "SmartNotification", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            b.Property(x => x.NotificationType).IsRequired().HasMaxLength(50);
+            b.Property(x => x.Title).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Message).IsRequired().HasMaxLength(1000);
+
+            // Indexes
+            b.HasIndex(x => x.UserId);
+            b.HasIndex(x => x.NotificationType);
+            b.HasIndex(x => x.IsSent);
+            b.HasIndex(x => x.IsRead);
+            b.HasIndex(x => x.ScheduledFor);
+
+            // Relationships
+            b.HasOne<IdentityUser>()
+             .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        //NOTIFICATION SETTINGS
+        builder.Entity<NotificationSetting>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "NotificationSetting", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            // Indexes
+            b.HasIndex(x => x.UserId).IsUnique();
+
+            // Relationships
+            b.HasOne<IdentityUser>()
+             .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        //USER REMINDERS
+        builder.Entity<UserReminder>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "UserReminder", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            b.Property(x => x.Title).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Message).IsRequired().HasMaxLength(1000);
+            b.Property(x => x.ReminderType).IsRequired().HasMaxLength(50);
+            b.Property(x => x.ReminderTime).IsRequired();
+
+            // Indexes
+            b.HasIndex(x => x.UserId);
+            b.HasIndex(x => x.ReminderTime);
+            b.HasIndex(x => x.IsActive);
+            b.HasIndex(x => x.IsCompleted);
+
+            // Relationships
+            b.HasOne<IdentityUser>()
+             .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        //TRACKİNG COMMENT
+        builder.Entity<TrackingComment>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "TrackingComment", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            b.Property(x => x.Content).IsRequired().HasMaxLength(2000);
+            b.Property(x => x.CreationTime).IsRequired();
+
+            // Indexes
+            b.HasIndex(x => x.IssueId);
+            b.HasIndex(x => x.UserId);
+            b.HasIndex(x => x.CreationTime);
+
+            // Relationships
+            b.HasOne<TrackingIssue>()
+             .WithMany()
+             .HasForeignKey(x => x.IssueId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne<IdentityUser>()
+             .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        //TRACKING ATTACHMENT
+        builder.Entity<TrackingAttachment>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "TrackingAttachment", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            b.Property(x => x.FileName).IsRequired().HasMaxLength(255);
+            b.Property(x => x.FilePath).IsRequired().HasMaxLength(500);
+            b.Property(x => x.ContentType).IsRequired().HasMaxLength(100);
+
+            // Indexes
+            b.HasIndex(x => x.IssueId);
+            b.HasIndex(x => x.UploadedByUserId);
+
+            // Relationships
+            b.HasOne<TrackingIssue>()
+             .WithMany()
+             .HasForeignKey(x => x.IssueId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne<IdentityUser>()
+             .WithMany()
+             .HasForeignKey(x => x.UploadedByUserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        //TRACKING TAG
+        builder.Entity<TrackingTag>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "TrackingTag", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            b.Property(x => x.Name).IsRequired().HasMaxLength(100);
+            b.Property(x => x.Color).IsRequired().HasMaxLength(20);
+
+            // Indexes
+            b.HasIndex(x => x.ProjectId);
+            b.HasIndex(x => new { x.Name, x.ProjectId }).IsUnique();
+
+            // Relationships
+            b.HasOne<TrackingProject>()
+             .WithMany()
+             .HasForeignKey(x => x.ProjectId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        //TRACKING ISSUE TAG (Many-to-Many)
+        builder.Entity<TrackingIssueTag>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "TrackingIssueTag", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            // Indexes
+            b.HasIndex(x => x.IssueId);
+            b.HasIndex(x => x.TagId);
+            b.HasIndex(x => new { x.IssueId, x.TagId }).IsUnique();
+
+            // Relationships
+            b.HasOne<TrackingIssue>()
+             .WithMany()
+             .HasForeignKey(x => x.IssueId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne<TrackingTag>()
+             .WithMany()
+             .HasForeignKey(x => x.TagId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        //TRACKING TIME LOG
+        builder.Entity<TrackingTimeLog>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "TrackingTimeLog", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            b.Property(x => x.Description).HasMaxLength(500);
+
+            // Indexes
+            b.HasIndex(x => x.IssueId);
+            b.HasIndex(x => x.UserId);
+            b.HasIndex(x => x.StartTime);
+            b.HasIndex(x => x.IsActive);
+
+            // Relationships
+            b.HasOne<TrackingIssue>()
+             .WithMany()
+             .HasForeignKey(x => x.IssueId)
+             .OnDelete(DeleteBehavior.Cascade);
+
+            b.HasOne<IdentityUser>()
+             .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        //SMART NOTIFICATION
+        builder.Entity<SmartNotification>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "SmartNotification", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            b.Property(x => x.NotificationType).IsRequired().HasMaxLength(50);
+            b.Property(x => x.Title).IsRequired().HasMaxLength(200);
+            b.Property(x => x.Message).IsRequired().HasMaxLength(1000);
+
+            // Indexes
+            b.HasIndex(x => x.UserId);
+            b.HasIndex(x => x.NotificationType);
+            b.HasIndex(x => x.IsSent);
+            b.HasIndex(x => x.IsRead);
+            b.HasIndex(x => x.SentAt);
+
+            // Relationships
+            b.HasOne<IdentityUser>()
+             .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        //NOTIFICATION SETTING
+        builder.Entity<NotificationSetting>(b =>
+        {
+            b.ToTable(AltinayConsts.DbTablePrefix + "NotificationSetting", AltinayConsts.DbSchema);
+            b.ConfigureByConvention();
+
+            b.Property(x => x.DailyStartNotificationTime).IsRequired();
+            b.Property(x => x.DailyEndNotificationTime).IsRequired();
+
+            // Indexes
+            b.HasIndex(x => x.UserId).IsUnique();
+
+            // Relationships
+            b.HasOne<IdentityUser>()
+             .WithMany()
+             .HasForeignKey(x => x.UserId)
+             .OnDelete(DeleteBehavior.Cascade);
+        });
+
     }
 }
